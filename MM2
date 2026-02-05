@@ -1,0 +1,207 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "MM2|Simple hub Alpha",
+   LoadingTitle = "Initializing Final Version...",
+   LoadingSubtitle = "V0.0.1",
+   ConfigurationSaving = { Enabled = true, FolderName = "MM2_Config", FileName = "Main" }
+})
+
+-- Variables
+local AuraEnabled = false
+local ShootAuraEnabled = false
+local KillRange = 15
+local ShootRange = 50
+local WalkSpeedValue = 16
+local ESPEnabled = false
+local TargetParts = {"Head", "HumanoidRootPart", "UpperTorso"}
+
+local function getNil(name, class) 
+    for _, v in next, getnilinstances() do 
+        if v.ClassName == class and v.Name == name then 
+            return v 
+        end 
+    end 
+end
+
+-- Tabs
+local CombatTab = Window:CreateTab("Combat") 
+local PlayerTab = Window:CreateTab("Movement")
+local VisualTab = Window:CreateTab("Visuals")
+
+--------------------------------------------
+-- KNIFE AURA SYSTEM
+--------------------------------------------
+CombatTab:CreateToggle({
+   Name = "Enable Knife Aura",
+   CurrentValue = false,
+   Callback = function(Value) AuraEnabled = Value end,
+})
+
+CombatTab:CreateSlider({
+   Name = "Knife Range",
+   Range = {5, 50},
+   Increment = 1,
+   CurrentValue = 15,
+   Callback = function(Value) KillRange = Value end,
+})
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if AuraEnabled then
+            local lp = game.Players.LocalPlayer
+            local knife = lp.Backpack:FindFirstChild("Knife") or (lp.Character and lp.Character:FindFirstChild("Knife"))
+            if knife and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+                for _, v in pairs(game.Players:GetPlayers()) do
+                    if v ~= lp and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                        local dist = (lp.Character.HumanoidRootPart.Position - v.Character.HumanoidRootPart.Position).Magnitude
+                        if dist <= KillRange then
+                            for _, pName in pairs(TargetParts) do
+                                local p = v.Character:FindFirstChild(pName)
+                                if p then
+                                    knife.Events.KnifeStabbed:FireServer()
+                                    knife.Events.HandleTouched:FireServer(p)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+--------------------------------------------
+-- SHOOT AURA SYSTEM (SHERIFF SILENT AIM)
+--------------------------------------------
+CombatTab:CreateToggle({
+   Name = "Shoot Aura (Silent Aim)",
+   CurrentValue = false,
+   Callback = function(Value) ShootAuraEnabled = Value end,
+})
+
+CombatTab:CreateSlider({
+   Name = "Shoot Range",
+   Range = {20, 150},
+   Increment = 5,
+   CurrentValue = 70,
+   Callback = function(Value) ShootRange = Value end,
+})
+
+task.spawn(function()
+    while task.wait(0.3) do
+        if ShootAuraEnabled then
+            local lp = game.Players.LocalPlayer
+            local gun = lp.Backpack:FindFirstChild("Gun") or (lp.Character and lp.Character:FindFirstChild("Gun"))
+            local shootEvent = getNil("Shoot", "RemoteEvent")
+            
+            if gun and shootEvent and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+                for _, v in pairs(game.Players:GetPlayers()) do
+                    local isMurderer = v.Backpack:FindFirstChild("Knife") or (v.Character and v.Character:FindFirstChild("Knife"))
+                    if v ~= lp and v.Character and isMurderer and v.Character:FindFirstChild("HumanoidRootPart") then
+                        local targetHrp = v.Character.HumanoidRootPart
+                        local dist = (lp.Character.HumanoidRootPart.Position - targetHrp.Position).Magnitude
+                        
+                        if dist <= ShootRange then
+                            -- Silent Aim Arguments using target position
+                            local shootArgs = {
+                                [1] = lp.Character.HumanoidRootPart.CFrame,
+                                [2] = targetHrp.CFrame
+                            }
+                            shootEvent:FireServer(unpack(shootArgs))
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+--------------------------------------------
+-- SPEED SYSTEM
+--------------------------------------------
+PlayerTab:CreateSlider({
+   Name = "WalkSpeed",
+   Range = {16, 100},
+   Increment = 1,
+   CurrentValue = 19,
+   Callback = function(Value) WalkSpeedValue = Value end,
+})
+
+task.spawn(function()
+    game:GetService("RunService").RenderStepped:Connect(function()
+        pcall(function()
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.WalkSpeed = WalkSpeedValue
+            end
+        end)
+    end)
+end)
+
+--------------------------------------------
+-- ESP SYSTEM
+--------------------------------------------
+local function GetPlayerRoleColor(player)
+    if player.Backpack:FindFirstChild("Knife") or (player.Character and player.Character:FindFirstChild("Knife")) then
+        return Color3.fromRGB(255, 0, 0) -- Red (Murderer)
+    elseif player.Backpack:FindFirstChild("Gun") or (player.Character and player.Character:FindFirstChild("Gun")) then
+        return Color3.fromRGB(0, 0, 255) -- Blue (Sheriff)
+    else
+        return Color3.fromRGB(0, 255, 0) -- Green (Innocent)
+    end
+end
+
+local function ApplyESP(player)
+    pcall(function()
+        if player == game.Players.LocalPlayer then return end
+        if player.Character then
+            local Highlight = player.Character:FindFirstChild("Highlight")
+            if not Highlight then
+                Highlight = Instance.new("Highlight")
+                Highlight.Name = "Highlight"
+                Highlight.Parent = player.Character
+            end
+            Highlight.Adornee = player.Character
+            Highlight.FillTransparency = 1 
+            Highlight.OutlineColor = GetPlayerRoleColor(player)
+            Highlight.OutlineTransparency = 0
+            Highlight.Enabled = ESPEnabled
+        end
+    end)
+end
+
+VisualTab:CreateToggle({
+   Name = "Enable ESP",
+   CurrentValue = false,
+   Callback = function(Value)
+      ESPEnabled = Value
+      for _, v in pairs(game.Players:GetPlayers()) do
+          ApplyESP(v)
+      end
+   end,
+})
+
+VisualTab:CreateButton({
+   Name = "Refresh ESP",
+   Callback = function()
+      for _, v in pairs(game.Players:GetPlayers()) do
+          if v.Character then
+              local old = v.Character:FindFirstChild("Highlight")
+              if old then old:Destroy() end
+              ApplyESP(v)
+          end
+      end
+   end,
+})
+
+-- Auto-refresh loop
+task.spawn(function()
+    while task.wait(3) do
+        if ESPEnabled then
+            for _, v in pairs(game.Players:GetPlayers()) do
+                ApplyESP(v)
+            end
+        end
+    end
+end)
+
+Rayfield:LoadConfiguration()
