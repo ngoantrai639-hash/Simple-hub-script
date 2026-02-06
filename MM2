@@ -3,7 +3,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
    Name = "MM2|Simple hub Alpha",
    LoadingTitle = "MM2 script",
-   LoadingSubtitle = "V0.0.2",
+   LoadingSubtitle = "V0.1",
    ConfigurationSaving = { Enabled = true, FolderName = "MM2_Config", FileName = "Main" }
 })
 
@@ -150,7 +150,7 @@ CombatTab:CreateSlider({
 CombatTab:CreateSection("Sheriff Aura")
 
 CombatTab:CreateToggle({
-   Name = "Shoot Aura (Silent Aim)",
+   Name = "Shoot Aura (Silent Aim[Pc only])",
    CurrentValue = false,
    Callback = function(Value) ShootAuraEnabled = Value end,
 })
