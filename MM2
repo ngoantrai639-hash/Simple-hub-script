@@ -3,7 +3,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
    Name = "MM2|Simple hub Alpha",
    LoadingTitle = "MM2 script",
-   LoadingSubtitle = "V0.0.1",
+   LoadingSubtitle = "V0.0.2",
    ConfigurationSaving = { Enabled = true, FolderName = "MM2_Config", FileName = "Main" }
 })
 
@@ -16,6 +16,21 @@ local WalkSpeedValue = 16
 local ESPEnabled = false
 local TargetParts = {"Head", "HumanoidRootPart", "UpperTorso"}
 
+-- Aimbot Variables
+local Camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+local _G = {
+    AimbotEnabled = false,
+    FOVVisible = true,
+    FOVRadius = 60,
+    MaxDistance = 100,
+    Smoothness = 0.08,
+    TargetMode = "Torso"
+}
+
 local function getNil(name, class) 
     for _, v in next, getnilinstances() do 
         if v.ClassName == class and v.Name == name then 
@@ -24,14 +39,100 @@ local function getNil(name, class)
     end 
 end
 
+local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
+ScreenGui.Name = "MM2_FOV_Fixed"
+ScreenGui.ResetOnSpawn = false
+
+local FOVFrame = Instance.new("Frame", ScreenGui)
+FOVFrame.BackgroundTransparency = 1
+FOVFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+FOVFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+
+local Stroke = Instance.new("UIStroke", FOVFrame)
+Stroke.Thickness = 2
+Stroke.Color = Color3.fromRGB(255, 255, 255)
+local Corner = Instance.new("UICorner", FOVFrame)
+Corner.CornerRadius = UDim.new(1, 0)
+
 -- Tabs
 local CombatTab = Window:CreateTab("Combat") 
 local PlayerTab = Window:CreateTab("Movement")
 local VisualTab = Window:CreateTab("Visuals")
 
 --------------------------------------------
--- KNIFE AURA SYSTEM
+-- AIMBOT SYSTEM
 --------------------------------------------
+local function GetPlayerRole(Player)
+    local Backtrack = Player:FindFirstChild("Backpack")
+    local Character = Player.Character
+    if (Backtrack and Backtrack:FindFirstChild("Knife")) or (Character and Character:FindFirstChild("Knife")) then
+        return "Murderer"
+    elseif (Backtrack and Backtrack:FindFirstChild("Gun")) or (Character and Character:FindFirstChild("Gun")) then
+        return "Sheriff"
+    end
+    return "Innocent"
+end
+
+local function GetTargetPart(Character)
+    if _G.TargetMode == "Head" then
+        return Character:FindFirstChild("Head")
+    else
+        return Character:FindFirstChild("HumanoidRootPart") or Character:FindFirstChild("UpperTorso") or Character:FindFirstChild("Torso")
+    end
+end
+
+local function GetMM2Target()
+    local Target = nil
+    local MaxDistFOV = _G.FOVRadius
+    local Center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local MyRole = GetPlayerRole(LocalPlayer)
+
+    for _, v in pairs(Players:GetPlayers()) do
+        if v == LocalPlayer or not v.Character then continue end
+        local Hum = v.Character:FindFirstChildOfClass("Humanoid")
+        if not Hum or Hum.Health <= 0 then continue end
+
+        local EnemyRole = GetPlayerRole(v)
+        local IsEnemy = (MyRole == "Murderer") or (EnemyRole == "Murderer")
+
+        if IsEnemy then
+            local AimPart = GetTargetPart(v.Character)
+            if AimPart then
+                local RealDist = (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) and (LocalPlayer.Character.HumanoidRootPart.Position - AimPart.Position).Magnitude or 0
+                if RealDist <= _G.MaxDistance then
+                    local ScreenPos, OnScreen = Camera:WorldToViewportPoint(AimPart.Position)
+                    if OnScreen then
+                        local DistFOV = (Vector2.new(ScreenPos.X, ScreenPos.Y) - Center).Magnitude
+                        if DistFOV < MaxDistFOV then
+                            Target = AimPart
+                            MaxDistFOV = DistFOV
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return Target
+end
+
+RunService.RenderStepped:Connect(function()
+    FOVFrame.Size = UDim2.new(0, _G.FOVRadius * 2, 0, _G.FOVRadius * 2)
+    FOVFrame.Visible = _G.FOVVisible
+
+    if _G.AimbotEnabled then
+        local Target = GetMM2Target()
+        if Target then
+            local LookAt = CFrame.new(Camera.CFrame.Position, Target.Position)
+            Camera.CFrame = Camera.CFrame:Lerp(LookAt, 1 - _G.Smoothness)
+        end
+    end
+end)
+
+--------------------------------------------
+-- COMBAT TAB CONTENT
+--------------------------------------------
+CombatTab:CreateSection("Knife Aura")
+
 CombatTab:CreateToggle({
    Name = "Enable Knife Aura",
    CurrentValue = false,
@@ -46,6 +147,70 @@ CombatTab:CreateSlider({
    Callback = function(Value) KillRange = Value end,
 })
 
+CombatTab:CreateSection("Sheriff Aura")
+
+CombatTab:CreateToggle({
+   Name = "Shoot Aura (Silent Aim)",
+   CurrentValue = false,
+   Callback = function(Value) ShootAuraEnabled = Value end,
+})
+
+CombatTab:CreateSlider({
+   Name = "Shoot Range",
+   Range = {20, 150},
+   Increment = 5,
+   CurrentValue = 70,
+   Callback = function(Value) ShootRange = Value end,
+})
+
+CombatTab:CreateSection("Aim Setting")
+
+CombatTab:CreateToggle({
+   Name = "Enable Aimbot",
+   CurrentValue = false,
+   Callback = function(Value) _G.AimbotEnabled = Value end,
+})
+
+CombatTab:CreateToggle({
+   Name = "Show FOV Circle",
+   CurrentValue = true,
+   Callback = function(Value) _G.FOVVisible = Value end,
+})
+
+CombatTab:CreateSlider({
+   Name = "FOV Size",
+   Range = {50, 200},
+   Increment = 10,
+   CurrentValue = 60,
+   Callback = function(Value) _G.FOVRadius = Value end,
+})
+
+CombatTab:CreateSlider({
+   Name = "Aim Smoothness",
+   Range = {0, 0.95},
+   Increment = 0.01,
+   CurrentValue = 0.08,
+   Callback = function(Value) _G.Smoothness = Value end,
+})
+
+CombatTab:CreateSlider({
+   Name = "Max Distance (Studs)",
+   Range = {50, 250},
+   Increment = 50,
+   CurrentValue = 100,
+   Callback = function(Value) _G.MaxDistance = Value end,
+})
+
+CombatTab:CreateDropdown({
+   Name = "Aim Part",
+   Options = {"Head", "Torso"},
+   CurrentOption = "Torso",
+   Callback = function(Option) _G.TargetMode = Option end,
+})
+
+--------------------------------------------
+-- LOOPS & OTHER SYSTEMS
+--------------------------------------------
 task.spawn(function()
     while task.wait(0.1) do
         if AuraEnabled then
@@ -70,22 +235,6 @@ task.spawn(function()
         end
     end
 end)
---------------------------------------------
--- SHOOT AURA SYSTEM (SHERIFF SILENT AIM)
---------------------------------------------
-CombatTab:CreateToggle({
-   Name = "Shoot Aura (Silent Aim)",
-   CurrentValue = false,
-   Callback = function(Value) ShootAuraEnabled = Value end,
-})
-
-CombatTab:CreateSlider({
-   Name = "Shoot Range",
-   Range = {20, 150},
-   Increment = 5,
-   CurrentValue = 70,
-   Callback = function(Value) ShootRange = Value end,
-})
 
 task.spawn(function()
     while task.wait(0.3) do
@@ -102,7 +251,6 @@ task.spawn(function()
                         local dist = (lp.Character.HumanoidRootPart.Position - targetHrp.Position).Magnitude
                         
                         if dist <= ShootRange then
-                            -- Silent Aim Arguments using target position
                             local shootArgs = {
                                 [1] = lp.Character.HumanoidRootPart.CFrame,
                                 [2] = targetHrp.CFrame
@@ -115,9 +263,7 @@ task.spawn(function()
         end
     end
 end)
---------------------------------------------
--- SPEED SYSTEM
---------------------------------------------
+
 PlayerTab:CreateSlider({
    Name = "WalkSpeed",
    Range = {16, 100},
@@ -137,9 +283,6 @@ task.spawn(function()
     end)
 end)
 
---------------------------------------------
--- ESP SYSTEM
---------------------------------------------
 local function GetPlayerRoleColor(player)
     if player.Backpack:FindFirstChild("Knife") or (player.Character and player.Character:FindFirstChild("Knife")) then
         return Color3.fromRGB(255, 0, 0) -- Red (Murderer)
@@ -193,7 +336,6 @@ VisualTab:CreateButton({
    end,
 })
 
--- Auto-refresh loop
 task.spawn(function()
     while task.wait(3) do
         if ESPEnabled then
