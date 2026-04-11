@@ -1,0 +1,2181 @@
+--[[
+ .____                  ________ ___.    _____                           __                
+ |    |    __ _______   \_____  \\_ |___/ ____\_ __  ______ ____ _____ _/  |_  ___________ 
+ |    |   |  |  \__  \   /   |   \| __ \   __\  |  \/  ___// ___\\__  \\   __\/  _ \_  __ \
+ |    |___|  |  // __ \_/    |    \ \_\ \  | |  |  /\___ \\  \___ / __ \|  | (  <_> )  | \/
+ |_______ \____/(____  /\_______  /___  /__| |____//____  >\___  >____  /__|  \____/|__|   
+         \/          \/         \/    \/                \/     \/     \/                   
+          \_Welcome to LuaObfuscator.com   (Alpha 0.10.9) ~  Much Love, Ferib 
+
+]]--
+
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))();
+local GuiService = game:GetService("GuiService");
+local RunService = game:GetService("RunService");
+local TweenService = game:GetService("TweenService");
+local Stats = game:GetService("Stats");
+local Lighting = game:GetService("Lighting");
+local Players = game:GetService("Players");
+local ReplicatedStorage = game:GetService("ReplicatedStorage");
+local unpack = unpack or table.unpack;
+local Window = Rayfield:CreateWindow({Name="Entrenched WW1 1.13.1|Edzefd Hub 2026.11.4|Project Simple Hub",LoadingTitle="Entrenched WW1",LoadingSubtitle="Now loading...",ConfigurationSaving={Enabled=true,FolderName="RayfieldConfigs",FileName="EntrenchedWW1"},Theme="Ocean"});
+local LP = Players.LocalPlayer;
+local Camera = workspace.CurrentCamera;
+local CurrentSilentAimV2Target = nil;
+_G.ScriptRunning = false;
+local reloadLoopTask = nil;
+local resetLoopTask = nil;
+local MedicSettings = {AutoHealAlly=false,AutoHealSelf=false,HealDistance=20,HealDelay=0.5,HealThreshold=75,AutoInteractAlly=false,AutoEquipBandage=true};
+local CameraSettings = {FOVEnabled=false,FOVValue=70,FOVColor=Color3.fromRGB(255, 255, 255),RainbowFOV=false};
+local AimSettings = {Enabled=true,SilentAimEnabled=false,SilentAimV2Enabled=false,SilentAimV3Enabled=false,SilentAimV4Enabled=false,V4HitChanceEnabled=false,V4BaseHitChance=100,V4HitChanceByRange=false,SilentAimV2MaxDistance=120,Smoothness=0.28,FOV=60,MaxDistance=500,TargetPart="Head",WallCheck=true,WallCheckV2=true,ShowFOV=true,ESPEnabled=true,ESPTransparency=0.5,ShowNames=true,PredictionEnabled=true,PredictIntensity=1,ShowTargetInfo=true,EnemyLookWarning=false};
+local DigSettings = {Enabled=false,Delay=0.25,Distance=5};
+local GunSettings = {Enabled=false,VelocityEnabled=false,VelocityValue=1000000,MaxDistance=5000,GravityEnabled=false,SpreadEnabled=false,SpreadValue=0,ProjectilesEnabled=false,ProjectilesValue=1,AimFOVEnabled=false,AimFOVValue=70,NoRecoilEnabled=false,LastTargetTime=tick()};
+local SpeedSettings = {Enabled=false,SpeedValue=16,FlyEnabled=false,FlySpeed=50};
+local JumpSettings = {Enabled=false,JumpPowerEnabled=false,JumpPowerValue=50};
+local WorldSettings = {Fullbright=false,NoFog=false};
+local DefaultLighting = {Brightness=Lighting.Brightness,ClockTime=Lighting.ClockTime,FogEnd=Lighting.FogEnd,GlobalShadows=Lighting.GlobalShadows,Ambient=Lighting.Ambient};
+local function CheckHitChance(distToPlayer, isV1)
+	local FlatIdent_95CAC = 0;
+	local chance;
+	while true do
+		if (FlatIdent_95CAC == 0) then
+			if not AimSettings.V4HitChanceEnabled then
+				return true;
+			end
+			chance = AimSettings.V4BaseHitChance;
+			FlatIdent_95CAC = 1;
+		end
+		if (FlatIdent_95CAC == 1) then
+			if AimSettings.V4HitChanceByRange then
+				chance = chance - ((distToPlayer / 100) * 10);
+			end
+			if isV1 then
+				chance = chance * 4;
+			end
+			FlatIdent_95CAC = 2;
+		end
+		if (FlatIdent_95CAC == 2) then
+			chance = math.clamp(chance, 0, 100);
+			return math.random(1, 100) <= chance;
+		end
+	end
+end
+local function GetTarget()
+	local target = nil;
+	local shortestDistance = AimSettings.FOV;
+	local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2);
+	for _, v in pairs(Players:GetPlayers()) do
+		if ((v ~= LP) and v.Character and v.Character:FindFirstChild(AimSettings.TargetPart)) then
+			local FlatIdent_61538 = 0;
+			local hum;
+			local part;
+			local pos;
+			local onScreen;
+			while true do
+				if (FlatIdent_61538 == 2) then
+					pos, onScreen = Camera:WorldToViewportPoint(part.Position);
+					if onScreen then
+						local FlatIdent_47A9C = 0;
+						local magnitude;
+						while true do
+							if (FlatIdent_47A9C == 0) then
+								magnitude = (Vector2.new(pos.X, pos.Y) - center).Magnitude;
+								if (magnitude < shortestDistance) then
+									local FlatIdent_63487 = 0;
+									local distToPlayer;
+									while true do
+										if (FlatIdent_63487 == 0) then
+											distToPlayer = (LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and (LP.Character.HumanoidRootPart.Position - part.Position).Magnitude) or 999;
+											if (distToPlayer <= AimSettings.MaxDistance) then
+												local FlatIdent_44839 = 0;
+												while true do
+													if (FlatIdent_44839 == 0) then
+														shortestDistance = magnitude;
+														target = part;
+														break;
+													end
+												end
+											end
+											break;
+										end
+									end
+								end
+								break;
+							end
+						end
+					end
+					break;
+				end
+				if (FlatIdent_61538 == 1) then
+					if (not hum or (hum.Health <= 0)) then
+						continue;
+					end
+					part = v.Character[AimSettings.TargetPart];
+					FlatIdent_61538 = 2;
+				end
+				if (FlatIdent_61538 == 0) then
+					if (v.Team == LP.Team) then
+						continue;
+					end
+					hum = v.Character:FindFirstChildOfClass("Humanoid");
+					FlatIdent_61538 = 1;
+				end
+			end
+		end
+	end
+	return target;
+end
+local function applyGunModifiers()
+	if (not GunSettings.Enabled or not LP.Character) then
+		return;
+	end
+	local tool = LP.Character:FindFirstChildOfClass("Tool");
+	if not tool then
+		return;
+	end
+	if (tool:GetAttribute("OriginalProjectiles") == nil) then
+		local FlatIdent_25011 = 0;
+		local currentProj;
+		while true do
+			if (FlatIdent_25011 == 0) then
+				currentProj = tool:GetAttribute("Projectiles");
+				if (currentProj ~= nil) then
+					tool:SetAttribute("OriginalProjectiles", currentProj);
+				else
+					tool:SetAttribute("OriginalProjectiles", 1);
+				end
+				break;
+			end
+		end
+	end
+	local originalProjCount = tool:GetAttribute("OriginalProjectiles");
+	local target = GetTarget();
+	local distToTarget = 200;
+	if (target and LP.Character:FindFirstChild("HumanoidRootPart")) then
+		distToTarget = (LP.Character.HumanoidRootPart.Position - target.Position).Magnitude;
+	end
+	local projCount = originalProjCount;
+	if (target and (distToTarget <= 100)) then
+		GunSettings.LastTargetTime = tick();
+		projCount = GunSettings.ProjectilesValue;
+	elseif ((tick() - GunSettings.LastTargetTime) > 0.15) then
+		projCount = originalProjCount;
+	else
+		projCount = GunSettings.ProjectilesValue;
+	end
+	if GunSettings.VelocityEnabled then
+		tool:SetAttribute("Velocity", GunSettings.VelocityValue);
+	end
+	tool:SetAttribute("ProjectileMaxDistance", GunSettings.MaxDistance);
+	if GunSettings.GravityEnabled then
+		tool:SetAttribute("ProjectileGravity", Vector3.new(-32, -32, -32));
+	end
+	if GunSettings.SpreadEnabled then
+		tool:SetAttribute("SpreadDefault", GunSettings.SpreadValue);
+	end
+	if GunSettings.ProjectilesEnabled then
+		tool:SetAttribute("Projectiles", projCount);
+	end
+	if GunSettings.AimFOVEnabled then
+		tool:SetAttribute("aimFOV", GunSettings.AimFOVValue);
+	end
+end
+task.spawn(function()
+	while true do
+		if GunSettings.Enabled then
+			applyGunModifiers();
+		end
+		task.wait(1);
+	end
+end);
+local function getBandage()
+	local FlatIdent_7DD24 = 0;
+	while true do
+		if (FlatIdent_7DD24 == 0) then
+			if not LP.Character then
+				return nil;
+			end
+			return LP.Character:FindFirstChild("Bandage") or LP.Backpack:FindFirstChild("Bandage");
+		end
+	end
+end
+local function sendHealSignal(targetChar)
+	local FlatIdent_781F8 = 0;
+	local bandage;
+	local args;
+	local healEvent;
+	while true do
+		if (2 == FlatIdent_781F8) then
+			healEvent:FireServer(unpack(args));
+			break;
+		end
+		if (1 == FlatIdent_781F8) then
+			args = {[1]={Target="Ally",Tool=bandage,Player=LP,Character=LP.Character,animationList={healAnimation=Instance.new("Animation")}},[2]=(targetChar:FindFirstChild("RightUpperArm") or targetChar:FindFirstChild("HumanoidRootPart")),[3]=targetChar:FindFirstChild("Humanoid")};
+			healEvent = ReplicatedStorage:WaitForChild("ServerEvents"):WaitForChild("Heal");
+			FlatIdent_781F8 = 2;
+		end
+		if (FlatIdent_781F8 == 0) then
+			bandage = getBandage();
+			if (not bandage or not targetChar or not targetChar:FindFirstChild("Humanoid")) then
+				return;
+			end
+			FlatIdent_781F8 = 1;
+		end
+	end
+end
+local function ResetMedicState()
+	if (MedicSettings.AutoHealAlly or MedicSettings.AutoHealSelf) then
+		getBandage();
+	end
+end
+task.spawn(function()
+	while true do
+		local FlatIdent_7F35E = 0;
+		while true do
+			if (FlatIdent_7F35E == 0) then
+				task.wait(1);
+				ResetMedicState();
+				break;
+			end
+		end
+	end
+end);
+local function ForceEquipBandage()
+	local FlatIdent_A9A3 = 0;
+	local character;
+	local humanoid;
+	local bandage;
+	while true do
+		if (1 == FlatIdent_A9A3) then
+			humanoid = character:FindFirstChildOfClass("Humanoid");
+			bandage = LP.Backpack:FindFirstChild("Bandage");
+			FlatIdent_A9A3 = 2;
+		end
+		if (FlatIdent_A9A3 == 2) then
+			if (bandage and humanoid) then
+				local FlatIdent_703C8 = 0;
+				local currentTool;
+				while true do
+					if (FlatIdent_703C8 == 0) then
+						currentTool = character:FindFirstChildOfClass("Tool");
+						if (not currentTool or (currentTool.Name ~= "Bandage")) then
+							humanoid:EquipTool(bandage);
+						end
+						break;
+					end
+				end
+			end
+			break;
+		end
+		if (FlatIdent_A9A3 == 0) then
+			character = LP.Character;
+			if not character then
+				return;
+			end
+			FlatIdent_A9A3 = 1;
+		end
+	end
+end
+task.spawn(function()
+	while true do
+		local FlatIdent_9147D = 0;
+		while true do
+			if (FlatIdent_9147D == 0) then
+				if ((MedicSettings.AutoHealAlly or MedicSettings.AutoHealSelf) and MedicSettings.AutoEquipBandage) then
+					ForceEquipBandage();
+				end
+				task.wait(0.05);
+				break;
+			end
+		end
+	end
+end);
+local function AutoInteractTeammate()
+	local FlatIdent_6A83E = 0;
+	local root;
+	while true do
+		if (FlatIdent_6A83E == 1) then
+			for _, player in pairs(Players:GetPlayers()) do
+				if ((player ~= LP) and (player.Team == LP.Team) and player.Character and player.Character:FindFirstChild("HumanoidRootPart")) then
+					local FlatIdent_12544 = 0;
+					local distance;
+					while true do
+						if (FlatIdent_12544 == 0) then
+							distance = (root.Position - player.Character.HumanoidRootPart.Position).Magnitude;
+							if (distance <= 20) then
+								for _, descendant in pairs(player.Character:GetDescendants()) do
+									if descendant:IsA("ProximityPrompt") then
+										fireproximityprompt(descendant, 1, true);
+									end
+								end
+							end
+							break;
+						end
+					end
+				end
+			end
+			break;
+		end
+		if (FlatIdent_6A83E == 0) then
+			if (not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart")) then
+				return;
+			end
+			root = LP.Character.HumanoidRootPart;
+			FlatIdent_6A83E = 1;
+		end
+	end
+end
+local ShootEvent = ReplicatedStorage:WaitForChild("ServerEvents"):WaitForChild("Shoot");
+local function getSilentPos(target)
+	local FlatIdent_29B3D = 0;
+	local pos;
+	while true do
+		if (FlatIdent_29B3D == 1) then
+			if AimSettings.PredictionEnabled then
+				local FlatIdent_759F1 = 0;
+				local ping;
+				while true do
+					if (0 == FlatIdent_759F1) then
+						ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000;
+						pos = pos + (target.Velocity * ping * AimSettings.PredictIntensity);
+						break;
+					end
+				end
+			end
+			return pos;
+		end
+		if (FlatIdent_29B3D == 0) then
+			if not target then
+				return nil;
+			end
+			pos = target.Position;
+			FlatIdent_29B3D = 1;
+		end
+	end
+end
+function doDigAction()
+	local FlatIdent_324DE = 0;
+	local char;
+	local spade;
+	local rootPart;
+	local frontPos;
+	local args;
+	while true do
+		if (FlatIdent_324DE == 2) then
+			rootPart = char.HumanoidRootPart;
+			frontPos = rootPart.Position + (rootPart.CFrame.LookVector * DigSettings.Distance) + Vector3.new(0, -2, 0);
+			FlatIdent_324DE = 3;
+		end
+		if (FlatIdent_324DE == 1) then
+			spade = char:FindFirstChild("Spade") or LP.Backpack:FindFirstChild("Spade");
+			if (not spade or not spade:FindFirstChild("Hold")) then
+				return;
+			end
+			FlatIdent_324DE = 2;
+		end
+		if (0 == FlatIdent_324DE) then
+			char = LP.Character;
+			if (not char or not char:FindFirstChild("HumanoidRootPart")) then
+				return;
+			end
+			FlatIdent_324DE = 1;
+		end
+		if (FlatIdent_324DE == 3) then
+			args = {[1]={resetBool={meleeHoldRepeat=false,digHoldRepeat=false},LoadedAnimations=true,hapticLeftTrigger=false,animationList={equipAnimation=nil,digAnimation=nil,runAnimation=nil,meleeAnimation=nil},Sounds=spade.Hold:FindFirstChild("Sounds"),Character=char,LoadedEvents=true,Tool=spade,hapticRightTrigger=false,actionBinds={Dig={true,Enum.UserInputType.MouseButton2,Enum.KeyCode.ButtonL2},Perspective={true,Enum.KeyCode.E,Enum.KeyCode.ButtonR3},Melee={true,Enum.UserInputType.MouseButton1,Enum.KeyCode.ButtonR2}},meleeTrail=spade.Hold:FindFirstChild("MeleeTrail"),Camera=workspace.CurrentCamera,Player=LP,isVibrationSupported=true},[2]=frontPos};
+			pcall(function()
+				local serverEvents = ReplicatedStorage:FindFirstChild("ServerEvents");
+				if (serverEvents and serverEvents:FindFirstChild("Dig")) then
+					serverEvents.Dig:FireServer(unpack(args));
+				end
+			end);
+			break;
+		end
+	end
+end
+local function reloadAction()
+	local FlatIdent_2D88C = 0;
+	local character;
+	local currentWeapon;
+	while true do
+		if (1 == FlatIdent_2D88C) then
+			currentWeapon = character:FindFirstChildOfClass("Tool");
+			if currentWeapon then
+				local args = {[1]={resetBool={meleeHoldRepeat=false,shootHoldRepeat=false},LoadedAnimations=true,Sounds=(currentWeapon:FindFirstChild("Hold") and currentWeapon.Hold:FindFirstChild("Sounds")),Tool=currentWeapon,Player=LP,Character=character,Camera=workspace.CurrentCamera,clientCanFire=true,LoadedEvents=true,RepeatCount=1,actionBinds={Reload={true,Enum.KeyCode.R,Enum.KeyCode.ButtonX}},currentShots=1}};
+				local serverEvents = ReplicatedStorage:FindFirstChild("ServerEvents");
+				if (serverEvents and serverEvents:FindFirstChild("Reload")) then
+					serverEvents.Reload:FireServer(unpack(args));
+				end
+			end
+			break;
+		end
+		if (FlatIdent_2D88C == 0) then
+			character = LP.Character;
+			if (not character or not _G.ScriptRunning) then
+				return;
+			end
+			FlatIdent_2D88C = 1;
+		end
+	end
+end
+local function startReloadLogic()
+	local FlatIdent_5346B = 0;
+	while true do
+		if (FlatIdent_5346B == 0) then
+			if reloadLoopTask then
+				task.cancel(reloadLoopTask);
+			end
+			reloadLoopTask = task.spawn(function()
+				while _G.ScriptRunning do
+					local FlatIdent_28F1 = 0;
+					while true do
+						if (0 == FlatIdent_28F1) then
+							reloadAction();
+							task.wait(0.1);
+							break;
+						end
+					end
+				end
+			end);
+			break;
+		end
+	end
+end
+local function handleInstantJump()
+	task.spawn(function()
+		while JumpSettings.Enabled do
+			local FlatIdent_8A742 = 0;
+			while true do
+				if (0 == FlatIdent_8A742) then
+					if LP.Character then
+						local FlatIdent_28F3E = 0;
+						local jumpTweaker;
+						while true do
+							if (FlatIdent_28F3E == 0) then
+								jumpTweaker = LP.Character:FindFirstChild("JumpTweakerLoader");
+								if (jumpTweaker and (jumpTweaker:IsA("Script") or jumpTweaker:IsA("LocalScript"))) then
+									if (jumpTweaker.Disabled == false) then
+										jumpTweaker.Disabled = true;
+									end
+								end
+								break;
+							end
+						end
+					end
+					task.wait(0.1);
+					break;
+				end
+			end
+		end
+	end);
+end
+local UserInputService = game:GetService("UserInputService");
+task.spawn(function()
+	RunService.Heartbeat:Connect(function()
+		local FlatIdent_2F37F = 0;
+		local hum;
+		local root;
+		while true do
+			if (FlatIdent_2F37F == 2) then
+				if (JumpSettings.FloatEnabled and root) then
+					local FlatIdent_1A54 = 0;
+					local currentVel;
+					while true do
+						if (0 == FlatIdent_1A54) then
+							currentVel = root.AssemblyLinearVelocity;
+							root.AssemblyLinearVelocity = Vector3.new(currentVel.X, 0.5, currentVel.Z);
+							break;
+						end
+					end
+				end
+				break;
+			end
+			if (FlatIdent_2F37F == 0) then
+				if (not LP.Character or not LP.Character:FindFirstChild("Humanoid")) then
+					return;
+				end
+				hum = LP.Character.Humanoid;
+				FlatIdent_2F37F = 1;
+			end
+			if (FlatIdent_2F37F == 1) then
+				root = LP.Character:FindFirstChild("HumanoidRootPart");
+				if (JumpSettings.InfJumpEnabled and UserInputService:IsKeyDown(Enum.KeyCode.Space)) then
+					local FlatIdent_3CF36 = 0;
+					while true do
+						if (0 == FlatIdent_3CF36) then
+							hum:ChangeState(Enum.HumanoidStateType.Jumping);
+							task.wait();
+							FlatIdent_3CF36 = 1;
+						end
+						if (FlatIdent_3CF36 == 1) then
+							hum:ChangeState(Enum.HumanoidStateType.Landed);
+							break;
+						end
+					end
+				end
+				FlatIdent_2F37F = 2;
+			end
+		end
+	end);
+end);
+local function SetupJumpPower(char)
+	local FlatIdent_61800 = 0;
+	local hum;
+	while true do
+		if (FlatIdent_61800 == 0) then
+			hum = char:WaitForChild("Humanoid");
+			hum.StateChanged:Connect(function(_, newState)
+				if ((newState == Enum.HumanoidStateType.Jumping) and JumpSettings.JumpPowerEnabled) then
+					local FlatIdent_90A41 = 0;
+					local root;
+					while true do
+						if (FlatIdent_90A41 == 0) then
+							root = char:FindFirstChild("HumanoidRootPart");
+							if root then
+								RunService.RenderStepped:Wait();
+								root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, JumpSettings.JumpPowerValue, root.AssemblyLinearVelocity.Z);
+							end
+							break;
+						end
+					end
+				end
+			end);
+			break;
+		end
+	end
+end
+if LP.Character then
+	SetupJumpPower(LP.Character);
+end
+LP.CharacterAdded:Connect(SetupJumpPower);
+local ScreenGui = Instance.new("ScreenGui");
+ScreenGui.Name = "FOV_Gui";
+ScreenGui.Parent = game.CoreGui or LP:WaitForChild("PlayerGui");
+ScreenGui.IgnoreGuiInset = true;
+local FOVFrame = Instance.new("Frame");
+FOVFrame.AnchorPoint = Vector2.new(0.5, 0.5);
+FOVFrame.Position = UDim2.new(0.5, 0, 0.5, 0);
+FOVFrame.BackgroundTransparency = 1;
+FOVFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255);
+FOVFrame.Visible = AimSettings.ShowFOV;
+FOVFrame.Parent = ScreenGui;
+local UICorner = Instance.new("UICorner");
+UICorner.CornerRadius = UDim.new(1, 0);
+UICorner.Parent = FOVFrame;
+local UIStroke = Instance.new("UIStroke");
+UIStroke.Color = CameraSettings.FOVColor;
+UIStroke.Thickness = 1;
+UIStroke.Parent = FOVFrame;
+local TargetHud = Instance.new("BillboardGui");
+TargetHud.Name = "TargetHud";
+TargetHud.Size = UDim2.new(0, 200, 0, 50);
+TargetHud.AlwaysOnTop = true;
+TargetHud.ExtentsOffset = Vector3.new(0, 3, 0);
+TargetHud.Enabled = false;
+TargetHud.Parent = game.CoreGui or LP:WaitForChild("PlayerGui");
+local TargetInfoLabel = Instance.new("TextLabel");
+TargetInfoLabel.Size = UDim2.new(1, 0, 1, 0);
+TargetInfoLabel.BackgroundTransparency = 1;
+TargetInfoLabel.TextColor3 = Color3.fromRGB(255, 255, 255);
+TargetInfoLabel.TextStrokeTransparency = 0;
+TargetInfoLabel.TextSize = 14;
+TargetInfoLabel.Font = Enum.Font.GothamBold;
+TargetInfoLabel.Text = "";
+TargetInfoLabel.Parent = TargetHud;
+local function ApplyESP(player)
+	if (player == LP) then
+		return;
+	end
+	local function createESP()
+		local FlatIdent_6225E = 0;
+		local highlight;
+		local nameGui;
+		local nameLabel;
+		local teamName;
+		while true do
+			if (FlatIdent_6225E == 5) then
+				nameLabel.TextSize = 10;
+				nameLabel.Font = Enum.Font.GothamBold;
+				teamName = (player.Team and player.Team.Name) or "Neutral";
+				nameLabel.Text = string.format("[%s]\n%s", teamName, player.Name);
+				FlatIdent_6225E = 6;
+			end
+			if (FlatIdent_6225E == 0) then
+				if not player.Character then
+					return;
+				end
+				highlight = player.Character:FindFirstChild("ESPHighlight") or Instance.new("Highlight");
+				highlight.Name = "ESPHighlight";
+				highlight.Parent = player.Character;
+				FlatIdent_6225E = 1;
+			end
+			if (FlatIdent_6225E == 3) then
+				nameGui.AlwaysOnTop = true;
+				nameGui.ExtentsOffset = Vector3.new(0, 3, 0);
+				nameGui.Parent = player.Character;
+				nameLabel = nameGui:FindFirstChild("TextLabel") or Instance.new("TextLabel");
+				FlatIdent_6225E = 4;
+			end
+			if (FlatIdent_6225E == 4) then
+				nameLabel.Size = UDim2.new(1, 0, 1, 0);
+				nameLabel.BackgroundTransparency = 1;
+				nameLabel.TextColor3 = player.TeamColor.Color;
+				nameLabel.TextStrokeTransparency = 0.5;
+				FlatIdent_6225E = 5;
+			end
+			if (FlatIdent_6225E == 6) then
+				nameLabel.Parent = nameGui;
+				nameLabel.Visible = AimSettings.ShowNames and AimSettings.ESPEnabled;
+				break;
+			end
+			if (FlatIdent_6225E == 2) then
+				nameGui = player.Character:FindFirstChild("NameESP") or Instance.new("BillboardGui");
+				nameGui.Name = "NameESP";
+				nameGui.Adornee = player.Character:FindFirstChild("Head") or player.Character.PrimaryPart;
+				nameGui.Size = UDim2.new(0, 150, 0, 50);
+				FlatIdent_6225E = 3;
+			end
+			if (FlatIdent_6225E == 1) then
+				highlight.FillTransparency = AimSettings.ESPTransparency;
+				highlight.OutlineTransparency = 0.1;
+				highlight.FillColor = player.TeamColor.Color;
+				highlight.Enabled = AimSettings.ESPEnabled;
+				FlatIdent_6225E = 2;
+			end
+		end
+	end
+	player.CharacterAdded:Connect(function()
+		local FlatIdent_8ABD6 = 0;
+		while true do
+			if (FlatIdent_8ABD6 == 0) then
+				task.wait(0.5);
+				createESP();
+				break;
+			end
+		end
+	end);
+	createESP();
+end
+task.spawn(function()
+	while true do
+		local FlatIdent_40070 = 0;
+		while true do
+			if (FlatIdent_40070 == 0) then
+				task.wait(1);
+				for _, p in pairs(Players:GetPlayers()) do
+					if ((p ~= LP) and p.Character) then
+						local FlatIdent_86900 = 0;
+						local highlight;
+						local nameGui;
+						while true do
+							if (1 == FlatIdent_86900) then
+								if (highlight and nameGui) then
+									local FlatIdent_91B54 = 0;
+									local label;
+									while true do
+										if (FlatIdent_91B54 == 1) then
+											highlight.Enabled = AimSettings.ESPEnabled;
+											if label then
+												label.Visible = AimSettings.ShowNames and AimSettings.ESPEnabled;
+												local teamName = (p.Team and p.Team.Name) or "Neutral";
+												label.Text = string.format("[%s]\n%s", teamName, p.Name);
+											end
+											break;
+										end
+										if (FlatIdent_91B54 == 0) then
+											label = nameGui:FindFirstChild("TextLabel");
+											highlight.FillTransparency = AimSettings.ESPTransparency;
+											FlatIdent_91B54 = 1;
+										end
+									end
+								else
+									ApplyESP(p);
+								end
+								break;
+							end
+							if (FlatIdent_86900 == 0) then
+								highlight = p.Character:FindFirstChild("ESPHighlight");
+								nameGui = p.Character:FindFirstChild("NameESP");
+								FlatIdent_86900 = 1;
+							end
+						end
+					end
+				end
+				break;
+			end
+		end
+	end
+end);
+local function GetPing()
+	local FlatIdent_5E109 = 0;
+	local ping;
+	while true do
+		if (FlatIdent_5E109 == 0) then
+			ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValue();
+			return ((ping > 0) and (ping / 1000)) or 0.1;
+		end
+	end
+end
+local function IsVisible(targetPart)
+	local FlatIdent_2DA99 = 0;
+	local origin;
+	local destination;
+	local direction;
+	local raycastParams;
+	local ignoreList;
+	while true do
+		if (FlatIdent_2DA99 == 0) then
+			if (not LP.Character or not LP.Character:FindFirstChild("Head")) then
+				return false;
+			end
+			origin = LP.Character.Head.Position;
+			FlatIdent_2DA99 = 1;
+		end
+		if (FlatIdent_2DA99 == 2) then
+			raycastParams = RaycastParams.new();
+			raycastParams.FilterType = Enum.RaycastFilterType.Exclude;
+			FlatIdent_2DA99 = 3;
+		end
+		if (FlatIdent_2DA99 == 1) then
+			destination = targetPart.Position;
+			direction = destination - origin;
+			FlatIdent_2DA99 = 2;
+		end
+		if (FlatIdent_2DA99 == 4) then
+			return false;
+		end
+		if (FlatIdent_2DA99 == 3) then
+			ignoreList = {LP.Character,workspace.CurrentCamera};
+			for i = 1, 4 do
+				local FlatIdent_854BA = 0;
+				local result;
+				while true do
+					if (FlatIdent_854BA == 0) then
+						raycastParams.FilterDescendantsInstances = ignoreList;
+						result = workspace:Raycast(origin, direction, raycastParams);
+						FlatIdent_854BA = 1;
+					end
+					if (FlatIdent_854BA == 1) then
+						if result then
+							local FlatIdent_43626 = 0;
+							local hit;
+							while true do
+								if (FlatIdent_43626 == 1) then
+									if (hit.CanCollide == false) then
+										table.insert(ignoreList, hit);
+									else
+										return false;
+									end
+									break;
+								end
+								if (0 == FlatIdent_43626) then
+									hit = result.Instance;
+									if hit:IsDescendantOf(targetPart.Parent) then
+										return true;
+									end
+									FlatIdent_43626 = 1;
+								end
+							end
+						else
+							return true;
+						end
+						break;
+					end
+				end
+			end
+			FlatIdent_2DA99 = 4;
+		end
+	end
+end
+local function GetTargetV2()
+	local target = nil;
+	local shortestDistance = AimSettings.FOV;
+	local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2);
+	for _, v in pairs(Players:GetPlayers()) do
+		if ((v ~= LP) and v.Character and v.Character:FindFirstChild(AimSettings.TargetPart)) then
+			local FlatIdent_44100 = 0;
+			local hum;
+			local part;
+			local pos;
+			local onScreen;
+			while true do
+				if (FlatIdent_44100 == 1) then
+					if (not hum or (hum.Health <= 0)) then
+						continue;
+					end
+					part = v.Character[AimSettings.TargetPart];
+					FlatIdent_44100 = 2;
+				end
+				if (FlatIdent_44100 == 0) then
+					if (v.Team == LP.Team) then
+						continue;
+					end
+					hum = v.Character:FindFirstChildOfClass("Humanoid");
+					FlatIdent_44100 = 1;
+				end
+				if (FlatIdent_44100 == 2) then
+					pos, onScreen = Camera:WorldToViewportPoint(part.Position);
+					if onScreen then
+						local magnitude = (Vector2.new(pos.X, pos.Y) - center).Magnitude;
+						if (magnitude < shortestDistance) then
+							local FlatIdent_4E551 = 0;
+							local distToPlayer;
+							while true do
+								if (FlatIdent_4E551 == 0) then
+									distToPlayer = (LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and (LP.Character.HumanoidRootPart.Position - part.Position).Magnitude) or 999;
+									if (distToPlayer <= AimSettings.MaxDistance) then
+										if (not AimSettings.WallCheck or IsVisible(part)) then
+											local FlatIdent_10550 = 0;
+											while true do
+												if (0 == FlatIdent_10550) then
+													shortestDistance = magnitude;
+													target = part;
+													break;
+												end
+											end
+										end
+									end
+									break;
+								end
+							end
+						end
+					end
+					break;
+				end
+			end
+		end
+	end
+	return target;
+end
+local function GetAllyTargetInFOV()
+	local target = nil;
+	local shortestDistance = AimSettings.FOV;
+	local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2);
+	for _, v in pairs(Players:GetPlayers()) do
+		if ((v ~= LP) and v.Character and v.Character:FindFirstChild("HumanoidRootPart")) then
+			local FlatIdent_6EEC8 = 0;
+			local hum;
+			local part;
+			local pos;
+			local onScreen;
+			while true do
+				if (FlatIdent_6EEC8 == 1) then
+					if (not hum or (hum.Health <= 0) or (hum.Health >= hum.MaxHealth)) then
+						continue;
+					end
+					part = v.Character.HumanoidRootPart;
+					FlatIdent_6EEC8 = 2;
+				end
+				if (FlatIdent_6EEC8 == 2) then
+					pos, onScreen = Camera:WorldToViewportPoint(part.Position);
+					if onScreen then
+						local magnitude = (Vector2.new(pos.X, pos.Y) - center).Magnitude;
+						if (magnitude < shortestDistance) then
+							local FlatIdent_6C967 = 0;
+							local distToPlayer;
+							while true do
+								if (FlatIdent_6C967 == 0) then
+									distToPlayer = (LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and (LP.Character.HumanoidRootPart.Position - part.Position).Magnitude) or 999;
+									if (distToPlayer <= MedicSettings.HealDistance) then
+										local FlatIdent_2FBBD = 0;
+										while true do
+											if (0 == FlatIdent_2FBBD) then
+												shortestDistance = magnitude;
+												target = part;
+												break;
+											end
+										end
+									end
+									break;
+								end
+							end
+						end
+					end
+					break;
+				end
+				if (0 == FlatIdent_6EEC8) then
+					if (v.Team ~= LP.Team) then
+						continue;
+					end
+					hum = v.Character:FindFirstChildOfClass("Humanoid");
+					FlatIdent_6EEC8 = 1;
+				end
+			end
+		end
+	end
+	return target;
+end
+local MainTab = Window:CreateTab("Combat", "crosshair");
+local GunTab = Window:CreateTab("Gun", "crosshair");
+local VisualTab = Window:CreateTab("Visuals", "eye");
+local MoveTab = Window:CreateTab("Movement", "wind");
+local InfoTab = Window:CreateTab("info", "info");
+InfoTab:CreateParagraph({Title="Update Info",Content="-New Silent Aim V4\nBugs Fix"});
+InfoTab:CreateParagraph({Title="Message",Content="Please Support Me By Like This Script,Im Very Happy If You Do It!\n-Report bugs or suggestions by commenting on ScriptBlox or Rscript so I can improve the script.Thank you"});
+InfoTab:CreateParagraph({Title="Credit",Content='Creator And Owner-Edzefd And EdzefdXA(@edzefd-@Edzefd_local)\n-ScriptBlox accout-@EdzefdScript\n-RScript accout-@EdzefdScriptR\n-Team-Edzefd\'s Local Team\n-Gun Silent Aim V3 and no recoil copy from \"Silent Aim And No Recoil Keyless\" - By @sneakygoober(ScriptBlox)-ReCode by Edzefd\'s Local Team(Me And My Brother)'});
+MainTab:CreateSection("Medic");
+MainTab:CreateToggle({Name="Auto Heal Self",CurrentValue=false,Flag="AutoHealSelf",Callback=function(Value)
+	local FlatIdent_90113 = 0;
+	while true do
+		if (FlatIdent_90113 == 0) then
+			MedicSettings.AutoHealSelf = Value;
+			task.spawn(function()
+				while MedicSettings.AutoHealSelf do
+					if (LP.Character and LP.Character:FindFirstChild("Humanoid")) then
+						local FlatIdent_67F21 = 0;
+						local hum;
+						while true do
+							if (FlatIdent_67F21 == 0) then
+								hum = LP.Character.Humanoid;
+								if (hum.Health < (hum.MaxHealth * (MedicSettings.HealThreshold / 100))) then
+									sendHealSignal(LP.Character);
+								end
+								break;
+							end
+						end
+					end
+					task.wait(MedicSettings.HealDelay);
+				end
+			end);
+			break;
+		end
+	end
+end});
+MainTab:CreateToggle({Name="Auto Heal Ally",CurrentValue=false,Flag="AutoHealAlly",Callback=function(Value)
+	local FlatIdent_8EA6E = 0;
+	while true do
+		if (FlatIdent_8EA6E == 0) then
+			MedicSettings.AutoHealAlly = Value;
+			task.spawn(function()
+				while MedicSettings.AutoHealAlly do
+					local allyPart = GetAllyTargetInFOV();
+					if (allyPart and allyPart.Parent) then
+						local tChar = allyPart.Parent;
+						if (tChar:FindFirstChild("Humanoid") and (tChar.Humanoid.Health < (tChar.Humanoid.MaxHealth * (MedicSettings.HealThreshold / 100)))) then
+							local FlatIdent_33DE6 = 0;
+							while true do
+								if (0 == FlatIdent_33DE6) then
+									sendHealSignal(tChar);
+									task.wait(0.1);
+									break;
+								end
+							end
+						end
+					end
+					task.wait(MedicSettings.HealDelay);
+				end
+			end);
+			break;
+		end
+	end
+end});
+MainTab:CreateSlider({Name="Heal Distance",Range={5,50},Increment=5,CurrentValue=20,Flag="HealDistance",Callback=function(Value)
+	MedicSettings.HealDistance = Value;
+end});
+MainTab:CreateSlider({Name="Heal Delay",Range={0.1,2},Increment=0.1,CurrentValue=0.5,Flag="HealDelay",Callback=function(Value)
+	MedicSettings.HealDelay = Value;
+end});
+MainTab:CreateSlider({Name="Heal Health Threshold (%)",Range={0,100},Increment=5,CurrentValue=75,Flag="HealThreshold",Callback=function(Value)
+	MedicSettings.HealThreshold = Value;
+end});
+MainTab:CreateToggle({Name="Auto Aid",CurrentValue=false,Flag="AutoAid",Callback=function(Value)
+	local FlatIdent_3F15E = 0;
+	while true do
+		if (FlatIdent_3F15E == 0) then
+			MedicSettings.AutoInteractAlly = Value;
+			if Value then
+				task.spawn(function()
+					while MedicSettings.AutoInteractAlly do
+						local FlatIdent_56F59 = 0;
+						while true do
+							if (FlatIdent_56F59 == 0) then
+								AutoInteractTeammate();
+								task.wait(0.1);
+								break;
+							end
+						end
+					end
+				end);
+			end
+			break;
+		end
+	end
+end});
+MainTab:CreateToggle({Name="Auto Equip Bandage",Info="May cause some bugs like gun aim animation,try re-Equip any Weapon",CurrentValue=true,Flag="AutoEquipBandage",Callback=function(Value)
+	MedicSettings.AutoEquipBandage = Value;
+end});
+GunTab:CreateSection("Reload");
+GunTab:CreateToggle({Name="Auto Reload",CurrentValue=false,Flag="AutoReload",Callback=function(Value)
+	local FlatIdent_3121 = 0;
+	while true do
+		if (FlatIdent_3121 == 0) then
+			_G.ScriptRunning = Value;
+			if Value then
+				local FlatIdent_90A69 = 0;
+				local character;
+				while true do
+					if (FlatIdent_90A69 == 1) then
+						resetLoopTask = task.spawn(function()
+							while _G.ScriptRunning do
+								local FlatIdent_1BAD7 = 0;
+								while true do
+									if (FlatIdent_1BAD7 == 0) then
+										task.wait(5);
+										if _G.ScriptRunning then
+											startReloadLogic();
+										end
+										break;
+									end
+								end
+							end
+						end);
+						character = LP.Character or LP.CharacterAdded:Wait();
+						FlatIdent_90A69 = 2;
+					end
+					if (FlatIdent_90A69 == 0) then
+						Rayfield:Notify({Title="Reload",Content="Auto Reload Enabled",Duration=2});
+						startReloadLogic();
+						FlatIdent_90A69 = 1;
+					end
+					if (FlatIdent_90A69 == 2) then
+						character.ChildAdded:Connect(function(child)
+							if (child:IsA("Tool") and _G.ScriptRunning) then
+								startReloadLogic();
+							end
+						end);
+						break;
+					end
+				end
+			else
+				Rayfield:Notify({Title="Reload",Content="Auto Reload Disabled",Duration=2});
+				if reloadLoopTask then
+					task.cancel(reloadLoopTask);
+				end
+				if resetLoopTask then
+					task.cancel(resetLoopTask);
+				end
+			end
+			break;
+		end
+	end
+end});
+MainTab:CreateSection("Dig");
+MainTab:CreateToggle({Name="Auto Dig",CurrentValue=false,Flag="AutoDig",Callback=function(Value)
+	local FlatIdent_9448C = 0;
+	while true do
+		if (FlatIdent_9448C == 0) then
+			DigSettings.Enabled = Value;
+			if Value then
+				task.spawn(function()
+					while DigSettings.Enabled do
+						local FlatIdent_7699F = 0;
+						while true do
+							if (FlatIdent_7699F == 0) then
+								doDigAction();
+								task.wait(DigSettings.Delay);
+								break;
+							end
+						end
+					end
+				end);
+			end
+			break;
+		end
+	end
+end});
+MainTab:CreateSlider({Name="Dig Delay",Range={0.1,1},Increment=0.05,CurrentValue=0.25,Flag="DigDelay",Callback=function(Value)
+	DigSettings.Delay = Value;
+end});
+MainTab:CreateSlider({Name="Dig Distance",Range={2,10},Increment=1,CurrentValue=5,Flag="DigDistance",Callback=function(Value)
+	DigSettings.Distance = Value;
+end});
+MainTab:CreateSection("Aim");
+MainTab:CreateToggle({Name="Aim Bot",CurrentValue=true,Flag="Aimbot",Callback=function(v)
+	AimSettings.Enabled = v;
+end});
+MainTab:CreateToggle({Name="Silent Aim",CurrentValue=false,Flag="SilentAim",Callback=function(v)
+	AimSettings.SilentAimEnabled = v;
+end});
+MainTab:CreateToggle({Name="Silent Aim V2 (Metatable Hook)",CurrentValue=false,Flag="SilentAimV2",Callback=function(v)
+	AimSettings.SilentAimV2Enabled = v;
+end});
+MainTab:CreateToggle({Name="Silent Aim V3 (WeaponModule Hook)",CurrentValue=false,Flag="SilentAimV3",Callback=function(v)
+	AimSettings.SilentAimV3Enabled = v;
+end});
+MainTab:CreateToggle({Name="Silent Aim V4",CurrentValue=false,Flag="SilentAimV4",Callback=function(v)
+	AimSettings.SilentAimV4Enabled = v;
+	if v then
+		AimSettings.SilentAimEnabled = true;
+		Rayfield:Notify({Title="Silent Aim",Content="V4 & V1 Activated",Duration=2});
+	end
+end});
+MainTab:CreateToggle({Name="Silent Aim V4 Hit Chance",CurrentValue=false,Flag="V4HitChance",Callback=function(v)
+	AimSettings.V4HitChanceEnabled = v;
+end});
+MainTab:CreateSlider({Name="V4 Base Hit Chance (%)(BETA)",Range={1,100},Increment=1,CurrentValue=100,Flag="V4BaseHitChance",Callback=function(v)
+	AimSettings.V4BaseHitChance = v;
+end});
+MainTab:CreateToggle({Name="Hit Chance By Range (BETA)",CurrentValue=false,Flag="V4HitChanceByRange",Callback=function(v)
+	AimSettings.V4HitChanceByRange = v;
+end});
+MoveTab:CreateToggle({Name="Enable GUI Dragging",CurrentValue=true,Callback=function(Value)
+	FloatingConfig.CanDrag = Value;
+end});
+MainTab:CreateLabel("WARNING:Silent Aim V2 May cause game crashes on some maps with rain.");
+MainTab:CreateSlider({Name="Silent Aim V2 Distance Limit",Range={0,120},Increment=5,CurrentValue=120,Flag="SilentAimV2Distance",Callback=function(v)
+	AimSettings.SilentAimV2MaxDistance = v;
+end});
+MainTab:CreateToggle({Name="Silent Aim V2 Wall Check",CurrentValue=true,Flag="WallCheckV2",Callback=function(v)
+	AimSettings.WallCheckV2 = v;
+end});
+MainTab:CreateDropdown({Name="Aim Target Part",Options={"Head","HumanoidRootPart"},CurrentOption={"Head"},Flag="AimTargetPart",Callback=function(Option)
+	AimSettings.TargetPart = Option[1];
+end});
+MainTab:CreateSlider({Name="Smoothness",Range={0.01,1},Increment=0.01,CurrentValue=0.28,Flag="Smoothness",Callback=function(v)
+	AimSettings.Smoothness = v;
+end});
+MainTab:CreateSlider({Name="Max Distance",Range={10,1000},Increment=10,CurrentValue=500,Flag="MaxDistance",Callback=function(v)
+	AimSettings.MaxDistance = v;
+end});
+MainTab:CreateToggle({Name="Wall Check",CurrentValue=true,Flag="WallCheck",Callback=function(v)
+	AimSettings.WallCheck = v;
+end});
+MainTab:CreateToggle({Name="Aim Prediction",CurrentValue=true,Flag="AimPrediction",Callback=function(v)
+	AimSettings.PredictionEnabled = v;
+end});
+MainTab:CreateSlider({Name="Prediction Intensity",Range={0,5},Increment=0.1,CurrentValue=1,Flag="PredictionIntensity",Callback=function(v)
+	AimSettings.PredictIntensity = v;
+end});
+VisualTab:CreateSection("ESP&HUD");
+VisualTab:CreateToggle({Name="Enable ESP",CurrentValue=true,Flag="ESPEnabled",Callback=function(v)
+	local FlatIdent_8B7B0 = 0;
+	while true do
+		if (FlatIdent_8B7B0 == 0) then
+			AimSettings.ESPEnabled = v;
+			for _, p in pairs(Players:GetPlayers()) do
+				if (p.Character and p.Character:FindFirstChild("ESPHighlight")) then
+					p.Character.ESPHighlight.Enabled = v;
+				end
+			end
+			break;
+		end
+	end
+end});
+VisualTab:CreateToggle({Name="Names ESP",CurrentValue=true,Flag="ShowNames",Callback=function(v)
+	AimSettings.ShowNames = v;
+end});
+VisualTab:CreateSlider({Name="Highlight Transparency",Range={0,1},Increment=0.1,CurrentValue=0.5,Flag="ESPTransparency",Callback=function(v)
+	AimSettings.ESPTransparency = v;
+end});
+VisualTab:CreateToggle({Name="Show Target HUD",CurrentValue=true,Flag="ShowTargetHUD",Callback=function(v)
+	AimSettings.ShowTargetInfo = v;
+end});
+VisualTab:CreateToggle({Name="Enemy Aim At You Detection(Red Flash)",CurrentValue=false,Flag="EnemyLookDetection",Callback=function(v)
+	AimSettings.EnemyLookWarning = v;
+end});
+VisualTab:CreateSection("FOV Customization");
+VisualTab:CreateToggle({Name="Show FOV Circle",CurrentValue=true,Flag="ShowFOVCircle",Callback=function(v)
+	AimSettings.ShowFOV = v;
+end});
+VisualTab:CreateSlider({Name="FOV Size",Range={50,800},Increment=10,CurrentValue=60,Flag="FOVSize",Callback=function(v)
+	AimSettings.FOV = v;
+end});
+VisualTab:CreateColorPicker({Name="FOV Circle Color",Color=Color3.fromRGB(255, 255, 255),Flag="FOVColor",Callback=function(Value)
+	local FlatIdent_35AC5 = 0;
+	while true do
+		if (FlatIdent_35AC5 == 0) then
+			CameraSettings.FOVColor = Value;
+			UIStroke.Color = Value;
+			break;
+		end
+	end
+end});
+VisualTab:CreateToggle({Name="Rainbow FOV",CurrentValue=false,Flag="RainbowFOV",Callback=function(Value)
+	CameraSettings.RainbowFOV = Value;
+end});
+VisualTab:CreateSection("Camera");
+VisualTab:CreateToggle({Name="Custom FOV(Camera)",CurrentValue=false,Flag="CustomFOVCamera",Callback=function(v)
+	local FlatIdent_506A5 = 0;
+	while true do
+		if (FlatIdent_506A5 == 0) then
+			CameraSettings.FOVEnabled = v;
+			if not v then
+				workspace.CurrentCamera.FieldOfView = 70;
+			end
+			break;
+		end
+	end
+end});
+VisualTab:CreateSlider({Name="Field of View (FOV)",Range={30,120},Increment=1,CurrentValue=70,Flag="CameraFOVValue",Callback=function(v)
+	CameraSettings.FOVValue = v;
+end});
+VisualTab:CreateSection("Map");
+VisualTab:CreateToggle({Name="Fullbright",CurrentValue=false,Flag="Fullbright",Callback=function(v)
+	WorldSettings.Fullbright = v;
+	if not v then
+		local FlatIdent_14124 = 0;
+		while true do
+			if (0 == FlatIdent_14124) then
+				Lighting.Brightness = DefaultLighting.Brightness;
+				Lighting.ClockTime = DefaultLighting.ClockTime;
+				FlatIdent_14124 = 1;
+			end
+			if (FlatIdent_14124 == 1) then
+				Lighting.FogEnd = DefaultLighting.FogEnd;
+				Lighting.GlobalShadows = DefaultLighting.GlobalShadows;
+				FlatIdent_14124 = 2;
+			end
+			if (FlatIdent_14124 == 2) then
+				Lighting.Ambient = DefaultLighting.Ambient;
+				break;
+			end
+		end
+	end
+end});
+VisualTab:CreateToggle({Name="No Fog",CurrentValue=false,Flag="NoFog",Callback=function(v)
+	local FlatIdent_37555 = 0;
+	while true do
+		if (FlatIdent_37555 == 0) then
+			WorldSettings.NoFog = v;
+			if (not v and not WorldSettings.Fullbright) then
+				Lighting.FogEnd = DefaultLighting.FogEnd;
+			end
+			break;
+		end
+	end
+end});
+MoveTab:CreateToggle({Name="Teleport Walk",CurrentValue=false,Flag="TeleportWalk",Callback=function(v)
+	SpeedSettings.Enabled = v;
+end});
+MoveTab:CreateSlider({Name="Speed Value",Range={5,20},Increment=1,CurrentValue=16,Flag="WalkSpeedValue",Callback=function(v)
+	SpeedSettings.SpeedValue = v;
+end});
+MoveTab:CreateToggle({Name="Instant Jump",CurrentValue=false,Flag="InstantJump",Callback=function(v)
+	local FlatIdent_11AA1 = 0;
+	while true do
+		if (FlatIdent_11AA1 == 0) then
+			JumpSettings.Enabled = v;
+			if v then
+				handleInstantJump();
+			end
+			break;
+		end
+	end
+end});
+MoveTab:CreateToggle({Name="Enable JumpPower",CurrentValue=false,Flag="JumpPowerEnabled",Callback=function(v)
+	JumpSettings.JumpPowerEnabled = v;
+end});
+MoveTab:CreateSlider({Name="JumpPower Value",Range={30,85},Increment=5,CurrentValue=50,Flag="JumpPowerValue",Callback=function(v)
+	JumpSettings.JumpPowerValue = v;
+end});
+MoveTab:CreateToggle({Name="CFrame Fly",CurrentValue=false,Flag="CFrameFly",Callback=function(v)
+	SpeedSettings.FlyEnabled = v;
+end});
+MoveTab:CreateSlider({Name="Fly Speed",Range={10,200},Increment=5,CurrentValue=50,Flag="FlySpeed",Callback=function(v)
+	SpeedSettings.FlySpeed = v;
+end});
+GunTab:CreateSection("Gun Modifier");
+GunTab:CreateToggle({Name="Enable Gun Modifier",CurrentValue=false,Flag="GunEnabled",Callback=function(v)
+	GunSettings.Enabled = v;
+end});
+GunTab:CreateToggle({Name="No Recoil",CurrentValue=false,Flag="GunNoRecoil",Callback=function(v)
+	GunSettings.NoRecoilEnabled = v;
+end});
+GunTab:CreateToggle({Name="High Velocity(Useless)",CurrentValue=false,Flag="GunVelocity",Callback=function(v)
+	GunSettings.VelocityEnabled = v;
+end});
+GunTab:CreateInput({Name="Bullet Max Distance(Useless)",PlaceholderText="5000",RemoveTextAfterFocusLost=false,Flag="BulletMaxRange",Callback=function(Text)
+	GunSettings.MaxDistance = tonumber(Text) or 5000;
+end});
+GunTab:CreateToggle({Name="Bullet No Gravity(Patched-Useless)",CurrentValue=false,Flag="GunNoGravity",Callback=function(v)
+	GunSettings.GravityEnabled = v;
+end});
+GunTab:CreateToggle({Name="No Aim Spread(useless)",CurrentValue=false,Flag="GunSpreadEnable",Callback=function(v)
+	GunSettings.SpreadEnabled = v;
+end});
+GunTab:CreateToggle({Name="Enable Bullet Clone",CurrentValue=false,Flag="GunCloneEnable",Callback=function(v)
+	GunSettings.ProjectilesEnabled = v;
+end});
+GunTab:CreateInput({Name="Bullet Clone Count",PlaceholderText="1",RemoveTextAfterFocusLost=false,Flag="Projectiles",Callback=function(Text)
+	GunSettings.ProjectilesValue = tonumber(Text) or 1;
+end});
+GunTab:CreateToggle({Name="Enable Aim FOV Modifier",CurrentValue=false,Flag="GunAimFOVEnable",Callback=function(v)
+	GunSettings.AimFOVEnabled = v;
+end});
+GunTab:CreateInput({Name="Aim FOV",PlaceholderText="70",RemoveTextAfterFocusLost=false,Flag="GunAimFOV",Callback=function(Text)
+	GunSettings.AimFOVValue = tonumber(Text) or 70;
+end});
+GunTab:CreateLabel("Gun Bullet Clone Only Work When Enemy Near You (20-100 Stub) And With Silent Aim V2");
+RunService.RenderStepped:Connect(function()
+	if CameraSettings.FOVEnabled then
+		workspace.CurrentCamera.FieldOfView = CameraSettings.FOVValue;
+	end
+	if WorldSettings.Fullbright then
+		Lighting.Brightness = 2;
+		Lighting.ClockTime = 14;
+		Lighting.FogEnd = 100000;
+		Lighting.GlobalShadows = false;
+		Lighting.Ambient = Color3.fromRGB(255, 255, 255);
+	end
+	if (WorldSettings.NoFog and not WorldSettings.Fullbright) then
+		Lighting.FogEnd = 100000;
+	end
+	if (SpeedSettings.Enabled and LP.Character and LP.Character:FindFirstChild("Humanoid") and LP.Character:FindFirstChild("HumanoidRootPart")) then
+		local FlatIdent_84478 = 0;
+		local hum;
+		local root;
+		while true do
+			if (FlatIdent_84478 == 0) then
+				hum = LP.Character.Humanoid;
+				root = LP.Character.HumanoidRootPart;
+				FlatIdent_84478 = 1;
+			end
+			if (FlatIdent_84478 == 1) then
+				if (hum.MoveDirection.Magnitude > 0) then
+					root.CFrame = root.CFrame + (hum.MoveDirection * (SpeedSettings.SpeedValue / 50));
+				end
+				break;
+			end
+		end
+	end
+	if (SpeedSettings.FlyEnabled and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")) then
+		local root = LP.Character.HumanoidRootPart;
+		local cam = workspace.CurrentCamera;
+		local uis = game:GetService("UserInputService");
+		local moveDir = Vector3.new(0, 0, 0);
+		if uis:IsKeyDown(Enum.KeyCode.W) then
+			moveDir = moveDir + cam.CFrame.LookVector;
+		end
+		if uis:IsKeyDown(Enum.KeyCode.S) then
+			moveDir = moveDir - cam.CFrame.LookVector;
+		end
+		if uis:IsKeyDown(Enum.KeyCode.A) then
+			moveDir = moveDir - cam.CFrame.RightVector;
+		end
+		if uis:IsKeyDown(Enum.KeyCode.D) then
+			moveDir = moveDir + cam.CFrame.RightVector;
+		end
+		if uis:IsKeyDown(Enum.KeyCode.Space) then
+			moveDir = moveDir + Vector3.new(0, 1, 0);
+		end
+		if uis:IsKeyDown(Enum.KeyCode.LeftControl) then
+			moveDir = moveDir - Vector3.new(0, 1, 0);
+		end
+		if (moveDir.Magnitude > 0) then
+			moveDir = moveDir.Unit;
+			root.CFrame = root.CFrame + (moveDir * (SpeedSettings.FlySpeed / 50));
+		end
+		root.AssemblyLinearVelocity = Vector3.new(0, 0, 0);
+	end
+	if AimSettings.ShowFOV then
+		FOVFrame.Visible = true;
+		local diameter = AimSettings.FOV * 2;
+		FOVFrame.Size = UDim2.new(0, diameter, 0, diameter);
+		if CameraSettings.RainbowFOV then
+			local FlatIdent_15F29 = 0;
+			local hue;
+			while true do
+				if (FlatIdent_15F29 == 0) then
+					hue = (tick() % 5) / 5;
+					UIStroke.Color = Color3.fromHSV(hue, 1, 1);
+					break;
+				end
+			end
+		else
+			UIStroke.Color = CameraSettings.FOVColor;
+		end
+	else
+		FOVFrame.Visible = false;
+	end
+	local enemyTarget = GetTargetV2();
+	local allyTarget = nil;
+	if MedicSettings.AutoHealAlly then
+		allyTarget = GetAllyTargetInFOV();
+	end
+	local uiTarget = enemyTarget or allyTarget;
+	local localHead = LP.Character and LP.Character:FindFirstChild("Head");
+	local flashState = math.sin(tick() * 15) > 0;
+	for _, p in pairs(Players:GetPlayers()) do
+		if ((p ~= LP) and p.Character) then
+			local highlight = p.Character:FindFirstChild("ESPHighlight");
+			local nameGui = p.Character:FindFirstChild("NameESP");
+			local label = nameGui and nameGui:FindFirstChild("TextLabel");
+			local hum = p.Character:FindFirstChildOfClass("Humanoid");
+			if (highlight and label and hum) then
+				local FlatIdent_2C980 = 0;
+				local isDead;
+				local deadColor;
+				local targetHighlightColor;
+				local targetNameColor;
+				local teamName;
+				local deadTag;
+				local currentHP;
+				while true do
+					if (2 == FlatIdent_2C980) then
+						teamName = (p.Team and p.Team.Name) or "Neutral";
+						deadTag = (isDead and " [Dead]") or "";
+						currentHP = math.max(0, math.floor(hum.Health));
+						label.Text = string.format("[HP: %d] [%s]\n%s%s", currentHP, teamName, p.Name, deadTag);
+						break;
+					end
+					if (FlatIdent_2C980 == 0) then
+						isDead = hum.Health <= 0;
+						deadColor = Color3.fromRGB(40, 5, 5);
+						targetHighlightColor = (isDead and deadColor) or p.TeamColor.Color;
+						targetNameColor = (isDead and deadColor) or p.TeamColor.Color;
+						FlatIdent_2C980 = 1;
+					end
+					if (1 == FlatIdent_2C980) then
+						if (not isDead and uiTarget and (uiTarget.Parent == p.Character)) then
+							if (p.Team == LP.Team) then
+								targetNameColor = Color3.fromRGB(0, 255, 0);
+							else
+								targetNameColor = Color3.fromRGB(255, 0, 0);
+							end
+						end
+						if (not isDead and AimSettings.EnemyLookWarning and (p.Team ~= LP.Team) and localHead) then
+							local FlatIdent_84ED3 = 0;
+							local enemyHead;
+							while true do
+								if (0 == FlatIdent_84ED3) then
+									enemyHead = p.Character:FindFirstChild("Head");
+									if enemyHead then
+										local dirToLP = (localHead.Position - enemyHead.Position).Unit;
+										local enemyLook = enemyHead.CFrame.LookVector;
+										if (enemyLook:Dot(dirToLP) >= 0.9396) then
+											if (not AimSettings.WallCheck or IsVisible(enemyHead)) then
+												if flashState then
+													local FlatIdent_40FD3 = 0;
+													while true do
+														if (FlatIdent_40FD3 == 0) then
+															targetHighlightColor = Color3.fromRGB(255, 0, 0);
+															targetNameColor = Color3.fromRGB(255, 0, 0);
+															break;
+														end
+													end
+												end
+											end
+										end
+									end
+									break;
+								end
+							end
+						end
+						highlight.FillColor = targetHighlightColor;
+						label.TextColor3 = targetNameColor;
+						FlatIdent_2C980 = 2;
+					end
+				end
+			end
+		end
+	end
+	if (enemyTarget and AimSettings.SilentAimV2Enabled) then
+		local FlatIdent_740DC = 0;
+		local MyOrigin;
+		local dist;
+		while true do
+			if (FlatIdent_740DC == 1) then
+				if ((dist <= AimSettings.SilentAimV2MaxDistance) and MyOrigin) then
+					CurrentSilentAimV2Target = enemyTarget;
+				else
+					CurrentSilentAimV2Target = nil;
+				end
+				break;
+			end
+			if (FlatIdent_740DC == 0) then
+				MyOrigin = LP.Character and (LP.Character:FindFirstChild("Head") or LP.Character.PrimaryPart);
+				dist = (LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and (LP.Character.HumanoidRootPart.Position - enemyTarget.Position).Magnitude) or 999;
+				FlatIdent_740DC = 1;
+			end
+		end
+	else
+		CurrentSilentAimV2Target = nil;
+	end
+	if uiTarget then
+		local FlatIdent_78A9D = 0;
+		while true do
+			if (FlatIdent_78A9D == 0) then
+				if (AimSettings.ShowTargetInfo and uiTarget.Parent:FindFirstChild("Humanoid")) then
+					local hum = uiTarget.Parent.Humanoid;
+					TargetHud.Adornee = uiTarget;
+					TargetHud.Enabled = true;
+					local distance = 0;
+					if (LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")) then
+						distance = (LP.Character.HumanoidRootPart.Position - uiTarget.Position).Magnitude;
+					end
+					local targetPlayer = Players:GetPlayerFromCharacter(uiTarget.Parent);
+					if (AimSettings.ShowNames and AimSettings.ESPEnabled) then
+						local FlatIdent_35C62 = 0;
+						while true do
+							if (FlatIdent_35C62 == 0) then
+								TargetInfoLabel.TextSize = 10;
+								TargetHud.ExtentsOffset = Vector3.new(0, 10, 0);
+								FlatIdent_35C62 = 1;
+							end
+							if (FlatIdent_35C62 == 1) then
+								TargetInfoLabel.Text = "";
+								break;
+							end
+						end
+					else
+						TargetInfoLabel.TextSize = 14;
+						TargetHud.ExtentsOffset = Vector3.new(0, 3, 0);
+						if (targetPlayer and (targetPlayer.Team == LP.Team)) then
+							TargetInfoLabel.Text = string.format("[Ally] %s\nHP: %.0f / %.0f", uiTarget.Parent.Name, hum.Health, hum.MaxHealth);
+						else
+							TargetInfoLabel.Text = string.format("%s\nHP: %.0f / %.0f", uiTarget.Parent.Name, hum.Health, hum.MaxHealth);
+						end
+					end
+					TargetInfoLabel.TextColor3 = Color3.fromHSV(math.clamp(hum.Health / hum.MaxHealth, 0, 1) * 0.3, 1, 1);
+				else
+					TargetHud.Enabled = false;
+				end
+				if enemyTarget then
+					local FlatIdent_4058F = 0;
+					local targetPos;
+					while true do
+						if (FlatIdent_4058F == 1) then
+							if AimSettings.SilentAimEnabled then
+								if (not AimSettings.WallCheck or IsVisible(enemyTarget)) then
+									local FlatIdent_47EEF = 0;
+									local distToEnemy;
+									while true do
+										if (FlatIdent_47EEF == 1) then
+											if CheckHitChance(distToEnemy, true) then
+												local FlatIdent_2B986 = 0;
+												local tool;
+												while true do
+													if (FlatIdent_2B986 == 0) then
+														tool = LP.Character and LP.Character:FindFirstChildOfClass("Tool");
+														if (tool and tool:FindFirstChild("Hold")) then
+															local FlatIdent_C79F = 0;
+															local args;
+															while true do
+																if (0 == FlatIdent_C79F) then
+																	args = {[1]={Tool=tool,Character=LP.Character,Player=LP,clientCanFire=true,currentShots=1,Camera=Camera,LoadedAnimations=true,LoadedEvents=true,actionBinds={Shoot={true,Enum.UserInputType.MouseButton1,Enum.KeyCode.ButtonR2}}},[2]=targetPos,[3]=false,[4]=1,[5]={},[6]=(targetPos + Vector3.new(0, 0.1, 0))};
+																	ShootEvent:FireServer(unpack(args));
+																	break;
+																end
+															end
+														end
+														break;
+													end
+												end
+											end
+											break;
+										end
+										if (FlatIdent_47EEF == 0) then
+											distToEnemy = 0;
+											if (LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")) then
+												distToEnemy = (LP.Character.HumanoidRootPart.Position - enemyTarget.Position).Magnitude;
+											end
+											FlatIdent_47EEF = 1;
+										end
+									end
+								end
+							end
+							break;
+						end
+						if (FlatIdent_4058F == 0) then
+							targetPos = getSilentPos(enemyTarget);
+							if AimSettings.Enabled then
+								local FlatIdent_243F3 = 0;
+								local currentCF;
+								local aimCF;
+								while true do
+									if (FlatIdent_243F3 == 1) then
+										Camera.CFrame = currentCF:Lerp(aimCF, AimSettings.Smoothness);
+										break;
+									end
+									if (FlatIdent_243F3 == 0) then
+										currentCF = Camera.CFrame;
+										aimCF = CFrame.lookAt(currentCF.Position, targetPos);
+										FlatIdent_243F3 = 1;
+									end
+								end
+							end
+							FlatIdent_4058F = 1;
+						end
+					end
+				end
+				break;
+			end
+		end
+	else
+		TargetHud.Enabled = false;
+	end
+end);
+LP.CharacterAdded:Connect(function(character)
+	task.wait(1);
+	ResetMedicState();
+	if _G.ScriptRunning then
+		startReloadLogic();
+	end
+	if JumpSettings.Enabled then
+		handleInstantJump();
+	end
+	character.ChildAdded:Connect(function(child)
+		if child:IsA("Tool") then
+			local FlatIdent_47A85 = 0;
+			while true do
+				if (FlatIdent_47A85 == 0) then
+					ResetMedicState();
+					if _G.ScriptRunning then
+						startReloadLogic();
+					end
+					break;
+				end
+			end
+		end
+	end);
+end);
+local mt = getrawmetatable(game);
+local oldNamecall = mt.__namecall;
+setreadonly(mt, false);
+mt.__namecall = newcclosure(function(self, ...)
+	local args = {...};
+	local method = getnamecallmethod();
+	if (AimSettings.SilentAimV2Enabled and CurrentSilentAimV2Target) then
+		if (method == "Raycast") then
+			local FlatIdent_1EAB2 = 0;
+			while true do
+				if (0 == FlatIdent_1EAB2) then
+					args[2] = (CurrentSilentAimV2Target.Position - args[1]).Unit * 500;
+					return oldNamecall(self, unpack(args));
+				end
+			end
+		elseif ((method == "FindPartOnRayWithIgnoreList") or (method == "FindPartOnRayWithWhitelist") or (method == "FindPartOnRay")) then
+			local FlatIdent_86634 = 0;
+			local origin;
+			while true do
+				if (FlatIdent_86634 == 0) then
+					origin = args[1].Origin;
+					args[1] = Ray.new(origin, (CurrentSilentAimV2Target.Position - origin).Unit * 500);
+					FlatIdent_86634 = 1;
+				end
+				if (FlatIdent_86634 == 1) then
+					return oldNamecall(self, unpack(args));
+				end
+			end
+		end
+	end
+	return oldNamecall(self, ...);
+end);
+setreadonly(mt, true);
+local s, wm = pcall(require, ReplicatedStorage:WaitForChild("WeaponModule"));
+if (s and wm) then
+	local oldEquip;
+	oldEquip = hookfunction(rawget(wm, "Equip"), newcclosure(function(data, _)
+		local FlatIdent_8770C = 0;
+		while true do
+			if (FlatIdent_8770C == 0) then
+				if (GunSettings.NoRecoilEnabled and data and data.Tool) then
+					local FlatIdent_6F3E4 = 0;
+					while true do
+						if (FlatIdent_6F3E4 == 0) then
+							data.Tool:SetAttribute("Recoil", 0);
+							task.spawn(function()
+								while GunSettings.NoRecoilEnabled and data.RecoilPattern do
+									local FlatIdent_95405 = 0;
+									while true do
+										if (FlatIdent_95405 == 0) then
+											table.clear(data.RecoilPattern);
+											task.wait();
+											break;
+										end
+									end
+								end
+							end);
+							break;
+						end
+					end
+				end
+				return oldEquip(data, _);
+			end
+		end
+	end));
+	local function GetTargetV3()
+		local target = nil;
+		local shortestDistance = AimSettings.FOV;
+		local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2);
+		for _, v in pairs(Players:GetPlayers()) do
+			if ((v ~= LP) and v.Character and v.Character:FindFirstChild(AimSettings.TargetPart)) then
+				if (v.Team == LP.Team) then
+					continue;
+				end
+				local hum = v.Character:FindFirstChildOfClass("Humanoid");
+				if (not hum or (hum.Health <= 0)) then
+					continue;
+				end
+				local part = v.Character[AimSettings.TargetPart];
+				local pos, onScreen = Camera:WorldToViewportPoint(part.Position);
+				if onScreen then
+					local FlatIdent_8BF78 = 0;
+					local magnitude;
+					while true do
+						if (0 == FlatIdent_8BF78) then
+							magnitude = (Vector2.new(pos.X, pos.Y) - center).Magnitude;
+							if (magnitude < shortestDistance) then
+								local distToPlayer = (LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and (LP.Character.HumanoidRootPart.Position - part.Position).Magnitude) or 999;
+								if (distToPlayer <= AimSettings.MaxDistance) then
+									if (not AimSettings.WallCheck or IsVisible(part)) then
+										local FlatIdent_1E844 = 0;
+										while true do
+											if (FlatIdent_1E844 == 0) then
+												shortestDistance = magnitude;
+												target = part;
+												break;
+											end
+										end
+									end
+								end
+							end
+							break;
+						end
+					end
+				end
+			end
+		end
+		return target;
+	end
+	local anon = debug.getupvalue(rawget(wm, "Shoot"), 3);
+	if (not anon or (type(anon) ~= "function")) then
+		for _, v in next, debug.getupvalues(rawget(wm, "Shoot")) do
+			if (type(v) == "function") then
+				anon = v;
+				break;
+			end
+		end
+	end
+	if anon then
+		for k, v in next, getfenv(anon) do
+			if (type(v) == "function") then
+				local n = debug.info(v, "n");
+				if (n == "Crosshair") then
+					local oldCrosshair;
+					oldCrosshair = hookfunction(rawget(getfenv(anon), k), newcclosure(function(...)
+						if AimSettings.SilentAimV3Enabled then
+							local FlatIdent_FC26 = 0;
+							local c;
+							local tool;
+							local vel;
+							while true do
+								if (FlatIdent_FC26 == 1) then
+									vel = (tool and tool:GetAttribute("Velocity")) or 1000;
+									if (c and vel and tool and LP.Character and LP.Character:FindFirstChild("Head")) then
+										local FlatIdent_80652 = 0;
+										local pos;
+										local tVel;
+										local r;
+										local v_vel;
+										local a;
+										local b;
+										local c0;
+										local disc;
+										while true do
+											if (FlatIdent_80652 == 4) then
+												if (disc >= 0) then
+													local FlatIdent_511F5 = 0;
+													local sqrtDisc;
+													local t1;
+													local t2;
+													local t_time;
+													while true do
+														if (FlatIdent_511F5 == 1) then
+															t2 = (-b + sqrtDisc) / (2 * a);
+															t_time = nil;
+															FlatIdent_511F5 = 2;
+														end
+														if (FlatIdent_511F5 == 2) then
+															if ((t1 > 0) and (t2 > 0)) then
+																t_time = math.min(t1, t2);
+															elseif (t1 > 0) then
+																t_time = t1;
+															elseif (t2 > 0) then
+																t_time = t2;
+															end
+															if t_time then
+																local FlatIdent_3C8BC = 0;
+																local prediction;
+																while true do
+																	if (FlatIdent_3C8BC == 0) then
+																		prediction = pos + (tVel * t_time);
+																		return prediction + ((prediction - LP.Character.Head.Position).Unit * (tool:GetAttribute("SpreadDefault") or 0) * 0.1);
+																	end
+																end
+															end
+															break;
+														end
+														if (0 == FlatIdent_511F5) then
+															sqrtDisc = math.sqrt(disc);
+															t1 = (-b - sqrtDisc) / (2 * a);
+															FlatIdent_511F5 = 1;
+														end
+													end
+												end
+												return pos;
+											end
+											if (2 == FlatIdent_80652) then
+												a = v_vel:Dot(v_vel) - (vel * vel);
+												b = 2 * r:Dot(v_vel);
+												FlatIdent_80652 = 3;
+											end
+											if (1 == FlatIdent_80652) then
+												r = pos - LP.Character.Head.Position;
+												v_vel = tVel - LP.Character.Head.AssemblyLinearVelocity;
+												FlatIdent_80652 = 2;
+											end
+											if (FlatIdent_80652 == 3) then
+												c0 = r:Dot(r);
+												disc = (b * b) - (4 * a * c0);
+												FlatIdent_80652 = 4;
+											end
+											if (FlatIdent_80652 == 0) then
+												pos = c.Position;
+												tVel = c.AssemblyLinearVelocity;
+												FlatIdent_80652 = 1;
+											end
+										end
+									end
+									break;
+								end
+								if (FlatIdent_FC26 == 0) then
+									c = GetTargetV3();
+									tool = LP.Character and LP.Character:FindFirstChildOfClass("Tool");
+									FlatIdent_FC26 = 1;
+								end
+							end
+						end
+						return oldCrosshair(...);
+					end));
+				elseif (n == "bulletMagnetism") then
+					local FlatIdent_82A94 = 0;
+					local oldMag;
+					while true do
+						if (0 == FlatIdent_82A94) then
+							oldMag = nil;
+							oldMag = hookfunction(rawget(getfenv(anon), k), newcclosure(function(...)
+								local FlatIdent_69486 = 0;
+								while true do
+									if (FlatIdent_69486 == 0) then
+										if AimSettings.SilentAimV3Enabled then
+											return nil;
+										end
+										return oldMag(...);
+									end
+								end
+							end));
+							break;
+						end
+					end
+				end
+			end
+		end
+	end
+end
+local function GetTargetV4()
+	local FlatIdent_185A5 = 0;
+	local bestPlayer;
+	local bestPart;
+	local maxFOV;
+	local bestDist;
+	local center;
+	while true do
+		if (0 == FlatIdent_185A5) then
+			bestPlayer, bestPart = nil, nil;
+			maxFOV = AimSettings.FOV;
+			FlatIdent_185A5 = 1;
+		end
+		if (FlatIdent_185A5 == 1) then
+			bestDist = maxFOV;
+			center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2);
+			FlatIdent_185A5 = 2;
+		end
+		if (FlatIdent_185A5 == 2) then
+			for _, plr in ipairs(Players:GetPlayers()) do
+				local FlatIdent_32708 = 0;
+				local char;
+				local hum;
+				local part;
+				local screenPos;
+				local onScreen;
+				local dist;
+				while true do
+					if (FlatIdent_32708 == 1) then
+						hum = char:FindFirstChildOfClass("Humanoid");
+						if (not hum or (hum.Health <= 0)) then
+							continue;
+						end
+						if (plr.Team == LP.Team) then
+							continue;
+						end
+						FlatIdent_32708 = 2;
+					end
+					if (FlatIdent_32708 == 4) then
+						if ((dist <= maxFOV) and (dist < bestDist)) then
+							local FlatIdent_61F8A = 0;
+							local distToPlayer;
+							while true do
+								if (FlatIdent_61F8A == 0) then
+									distToPlayer = (LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and (LP.Character.HumanoidRootPart.Position - part.Position).Magnitude) or 999;
+									if (distToPlayer <= AimSettings.MaxDistance) then
+										local FlatIdent_5C19E = 0;
+										while true do
+											if (FlatIdent_5C19E == 1) then
+												bestPart = part;
+												break;
+											end
+											if (FlatIdent_5C19E == 0) then
+												bestDist = dist;
+												bestPlayer = plr;
+												FlatIdent_5C19E = 1;
+											end
+										end
+									end
+									break;
+								end
+							end
+						end
+						break;
+					end
+					if (FlatIdent_32708 == 0) then
+						if (plr == LP) then
+							continue;
+						end
+						char = plr.Character;
+						if not char then
+							continue;
+						end
+						FlatIdent_32708 = 1;
+					end
+					if (FlatIdent_32708 == 2) then
+						part = char:FindFirstChild(AimSettings.TargetPart);
+						if not part then
+							continue;
+						end
+						screenPos, onScreen = Camera:WorldToViewportPoint(part.Position);
+						FlatIdent_32708 = 3;
+					end
+					if (FlatIdent_32708 == 3) then
+						if not onScreen then
+							continue;
+						end
+						if (AimSettings.WallCheck and not IsVisible(part)) then
+							continue;
+						end
+						dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude;
+						FlatIdent_32708 = 4;
+					end
+				end
+			end
+			return bestPlayer, bestPart;
+		end
+	end
+end
+local oldNamecallV4;
+oldNamecallV4 = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+	local method = getnamecallmethod();
+	local args = {...};
+	local nArgs = select("#", ...);
+	if (AimSettings.SilentAimV4Enabled and (method == "FireServer") and (typeof(self) == "Instance") and self.Parent and (self.Parent.Name == "ServerEvents") and (self.Parent.Parent == ReplicatedStorage)) then
+		if (self.Name == "Shoot") then
+			local FlatIdent_61057 = 0;
+			local targetPlr;
+			local targetPart;
+			while true do
+				if (0 == FlatIdent_61057) then
+					targetPlr, targetPart = GetTargetV4();
+					if (targetPlr and targetPart) then
+						local FlatIdent_5E6B6 = 0;
+						local headPos;
+						local distToTarget;
+						while true do
+							if (FlatIdent_5E6B6 == 0) then
+								headPos = targetPart.Position;
+								distToTarget = (LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and (LP.Character.HumanoidRootPart.Position - headPos).Magnitude) or 999;
+								FlatIdent_5E6B6 = 1;
+							end
+							if (1 == FlatIdent_5E6B6) then
+								if CheckHitChance(distToTarget, false) then
+									args[2] = headPos;
+									args[4] = 0;
+									args[5] = {{Instance=targetPart,Material=Enum.Material.Plastic,Normal=Vector3.new(0, 1, 0),Position=headPos}};
+									local prevChar = nil;
+									if ((type(args[1]) == "table") and args[1].Character) then
+										local FlatIdent_14A6D = 0;
+										while true do
+											if (FlatIdent_14A6D == 0) then
+												prevChar = args[1].Character;
+												args[1].Character = targetPlr.Character;
+												break;
+											end
+										end
+									end
+									setnamecallmethod(method);
+									local result = oldNamecallV4(self, unpack(args, 1, nArgs));
+									if prevChar then
+										args[1].Character = prevChar;
+									end
+									return result;
+								end
+								break;
+							end
+						end
+					end
+					break;
+				end
+			end
+		elseif (self.Name == "LookAngle") then
+			local FlatIdent_167D2 = 0;
+			local targetPlr;
+			local targetPart;
+			while true do
+				if (FlatIdent_167D2 == 0) then
+					targetPlr, targetPart = GetTargetV4();
+					if (targetPlr and targetPart) then
+						local distToTarget = (LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and (LP.Character.HumanoidRootPart.Position - targetPart.Position).Magnitude) or 999;
+						if CheckHitChance(distToTarget, false) then
+							local FlatIdent_727DA = 0;
+							local prevChar;
+							local result;
+							while true do
+								if (FlatIdent_727DA == 2) then
+									result = oldNamecallV4(self, unpack(args, 1, nArgs));
+									if prevChar then
+										args[1].Character = prevChar;
+									end
+									FlatIdent_727DA = 3;
+								end
+								if (0 == FlatIdent_727DA) then
+									args[2] = targetPart.Position - Camera.CFrame.Position;
+									prevChar = nil;
+									FlatIdent_727DA = 1;
+								end
+								if (FlatIdent_727DA == 1) then
+									if ((type(args[1]) == "table") and args[1].Character) then
+										local FlatIdent_542D1 = 0;
+										while true do
+											if (0 == FlatIdent_542D1) then
+												prevChar = args[1].Character;
+												args[1].Character = targetPlr.Character;
+												break;
+											end
+										end
+									end
+									setnamecallmethod(method);
+									FlatIdent_727DA = 2;
+								end
+								if (FlatIdent_727DA == 3) then
+									return result;
+								end
+							end
+						end
+					end
+					break;
+				end
+			end
+		end
+	end
+	return oldNamecallV4(self, ...);
+end));
+local UIS = game:GetService("UserInputService");
+local FloatingConfig = {CanDrag=true};
+local FloatingGui = Instance.new("ScreenGui");
+local ToggleButton = Instance.new("TextButton");
+local UICorner = Instance.new("UICorner");
+FloatingGui.Name = "Edzefd_FloatingV4";
+FloatingGui.Parent = game.CoreGui;
+FloatingGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
+ToggleButton.Name = "MainButton";
+ToggleButton.Parent = FloatingGui;
+ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0);
+ToggleButton.BackgroundTransparency = 0.4;
+ToggleButton.Position = UDim2.new(0.15, 0, 0.15, 0);
+ToggleButton.Size = UDim2.new(0, 60, 0, 60);
+ToggleButton.Font = Enum.Font.GothamBold;
+ToggleButton.Text = "OFF";
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255);
+ToggleButton.TextSize = 14;
+UICorner.CornerRadius = UDim.new(1, 0);
+UICorner.Parent = ToggleButton;
+ToggleButton.MouseButton1Click:Connect(function()
+	local FlatIdent_6A0CF = 0;
+	while true do
+		if (FlatIdent_6A0CF == 0) then
+			AimSettings.SilentAimV4Enabled = not AimSettings.SilentAimV4Enabled;
+			if AimSettings.SilentAimV4Enabled then
+				local FlatIdent_2DACE = 0;
+				while true do
+					if (FlatIdent_2DACE == 0) then
+						AimSettings.SilentAimEnabled = true;
+						ToggleButton.Text = "ON";
+						FlatIdent_2DACE = 1;
+					end
+					if (FlatIdent_2DACE == 1) then
+						ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0);
+						break;
+					end
+				end
+			else
+				local FlatIdent_401F9 = 0;
+				while true do
+					if (FlatIdent_401F9 == 0) then
+						ToggleButton.Text = "OFF";
+						ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0);
+						break;
+					end
+				end
+			end
+			break;
+		end
+	end
+end);
+local dragging, dragInput, dragStart, startPos;
+local function update(input)
+	local FlatIdent_3BBAF = 0;
+	local delta;
+	while true do
+		if (0 == FlatIdent_3BBAF) then
+			if not FloatingConfig.CanDrag then
+				return;
+			end
+			delta = input.Position - dragStart;
+			FlatIdent_3BBAF = 1;
+		end
+		if (FlatIdent_3BBAF == 1) then
+			ToggleButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y);
+			break;
+		end
+	end
+end
+ToggleButton.InputBegan:Connect(function(input)
+	if (((input.UserInputType == Enum.UserInputType.MouseButton1) or (input.UserInputType == Enum.UserInputType.Touch)) and FloatingConfig.CanDrag) then
+		local FlatIdent_53895 = 0;
+		while true do
+			if (FlatIdent_53895 == 0) then
+				dragging = true;
+				dragStart = input.Position;
+				FlatIdent_53895 = 1;
+			end
+			if (FlatIdent_53895 == 1) then
+				startPos = ToggleButton.Position;
+				input.Changed:Connect(function()
+					if (input.UserInputState == Enum.UserInputState.End) then
+						dragging = false;
+					end
+				end);
+				break;
+			end
+		end
+	end
+end);
+ToggleButton.InputChanged:Connect(function(input)
+	if ((input.UserInputType == Enum.UserInputType.MouseMovement) or (input.UserInputType == Enum.UserInputType.Touch)) then
+		dragInput = input;
+	end
+end);
+UIS.InputChanged:Connect(function(input)
+	if ((input == dragInput) and dragging) then
+		update(input);
+	end
+end);
+Rayfield:LoadConfiguration();
