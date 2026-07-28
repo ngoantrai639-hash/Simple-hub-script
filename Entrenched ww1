@@ -1,0 +1,2705 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local GuiService = game:GetService("GuiService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Stats = game:GetService("Stats")
+local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local Window = Rayfield:CreateWindow({
+   Name = "MeHub©(Discontinuted),For Entrenched WW1,@Edzefd",
+   LoadingTitle = "Entrenched WW1 Script",
+   LoadingSubtitle = "Thank You For Using", 
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "RayfieldConfigs",
+      FileName = "EntrenchedWW1"
+   },
+   Theme = "Amethyst" 
+})
+
+task.spawn(function()
+    while task.wait(2) do 
+        pcall(function()
+            for _, v in ipairs(CoreGui:GetDescendants()) do
+                if v:IsA("TextButton") or v:IsA("TextLabel") then
+                    if v.Text == "Show Rayfield" then
+                        v.Text = "Show MeHub"
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+local LP = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local CurrentSilentAimV2Target = nil 
+local CurrentStickyTarget = nil
+local CurrentStickyTargetV3 = nil
+
+local PlayerDeathCounts = {}
+local PlayerAliveStates = {}
+
+local SoundSettings = {
+    Enabled = false,
+    LowHPSoundId = "rbxassetid://8502168540",
+    KillSoundId = "rbxassetid://9159562579"
+}
+
+local LowHPSound = Instance.new("Sound", CoreGui)
+LowHPSound.Volume = 1
+LowHPSound.SoundId = SoundSettings.LowHPSoundId 
+local hasPlayedLowHP = false
+
+local customKillId = "9159562579"
+task.spawn(function()
+    while task.wait(10) do
+        pcall(function()
+            local rsSounds = ReplicatedStorage:FindFirstChild("Sounds")
+            if rsSounds then
+                local killAudio = rsSounds:FindFirstChild("Kill")
+                if killAudio and killAudio:IsA("Sound") then
+                    local parsedId = customKillId:match("%d+")
+                    if parsedId then
+                        killAudio.SoundId = "rbxassetid://" .. parsedId
+                    end
+                    killAudio.Volume = 1
+                    killAudio.PlaybackSpeed = 1
+                end
+            end
+        end)
+    end
+end)
+
+local function GetFOVCenter()
+    local yOffset = 0
+    if LP.Character and LP.Character:FindFirstChild("Humanoid") and LP.Character.Humanoid.Sit then
+         yOffset = -50
+    end
+    return Vector2.new(Camera.ViewportSize.X / 2, (Camera.ViewportSize.Y / 2) + yOffset), yOffset
+end
+
+local MedicSettings = {
+    AutoHealAlly = false,
+    AutoHealSelf = false,
+    HealDistance = 20,
+    HealDelay = 0.5,
+    HealThreshold = 75,
+    AutoEquipBandage = true,
+    AutoAid = false
+}
+
+local CameraSettings = {
+    FOVEnabled = false,
+    FOVValue = 70,
+    FOVColor = Color3.fromRGB(255, 255, 255),
+    RainbowFOV = false 
+}
+
+local AimSettings = {
+    Enabled = true,
+    SilentAimEnabled = false, 
+    SilentAimV2Enabled = false,
+    SilentAimV3Enabled = false,
+    StickyAimEnabled = false, 
+    SilentAimV2MaxDistance = 120,
+    Smoothness = 0.28,
+    FOV = 60,
+    MaxDistance = 500,
+    TargetPart = "Head",
+    WallCheck = true, 
+    WallCheckV2 = true,
+    ShowFOV = true,
+    ESPEnabled = true,
+    ESPTransparency = 0.5,
+    ShowNames = true,
+    ShowPropsNames = true,
+    NameESPSize = 10,
+    ESPShowRange = 1000,
+    PredictionEnabled = true,
+    AutoPrediction = false,
+    PredictIntensity = 1.0,
+    ShowTargetInfo = true,
+    ShowTargetMoveStatus = true,
+    ShowTargetWorkingAim = true,
+    ShowTargetDistance = true,
+    EnemyLookWarning = false,
+    ForcefieldCheck = true,
+    DeadCheck = true,
+    UseCustomESPColors = false,
+    AllyESPColor = Color3.fromRGB(0, 0, 139),
+    EnemyESPColor = Color3.fromRGB(139, 0, 0),
+    GrenadeESP = true,
+    GrenadeColor = Color3.fromRGB(255, 0, 0),
+    GrenadeWarning = true,
+    HMGESP = true,
+    HMGColor = Color3.fromRGB(0, 255, 0),
+    LadderESP = false,
+    LadderColor = Color3.fromRGB(255, 165, 0),
+    DuckboardESP = false,
+    DuckboardColor = Color3.fromRGB(139, 69, 19),
+    RoofESP = false,
+    RoofColor = Color3.fromRGB(128, 128, 128),
+    WireESP = false,
+    WireColor = Color3.fromRGB(105, 105, 105),
+    SandbagESP = false,
+    SandbagColor = Color3.fromRGB(194, 178, 128),
+    TallSandbagESP = false,
+    TallSandbagColor = Color3.fromRGB(160, 140, 95)
+}
+
+local GunSettings = {
+    Enabled = false,
+    MaxDistance = 5000,
+    SpreadEnabled = false,
+    SpreadValue = 0,
+    AimFOVEnabled = false, 
+    AimFOVScopeEnabled = false,
+    AimFOVValue = 70,
+    AimFOVScopeValue = 70,
+    NoRecoilEnabled = false, 
+    LastTargetTime = tick()
+}
+
+local SpeedSettings = {
+    Enabled = false,
+    SpeedValue = 16
+}
+
+local JumpSettings = {
+    Enabled = false,
+    JumpPowerEnabled = false,
+    JumpPowerValue = 50,
+    BhopEnabled = false 
+}
+
+local WorldSettings = {
+    Fullbright = false
+}
+
+local DefaultLighting = {
+    Brightness = Lighting.Brightness,
+    ClockTime = Lighting.ClockTime,
+    FogEnd = Lighting.FogEnd,
+    GlobalShadows = Lighting.GlobalShadows,
+    Ambient = Lighting.Ambient
+}
+
+local trackedHMGs = {}
+
+local function GetTarget()
+    local target = nil
+    local shortestDistance = AimSettings.FOV
+    local center, _ = GetFOVCenter()
+    local localRoot = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    local localRootPos = localRoot and localRoot.Position
+
+    for _, v in pairs(game.Players:GetPlayers()) do
+        if v ~= LP and v.Character and v.Character:FindFirstChild(AimSettings.TargetPart) then
+            if v.Team == LP.Team then continue end
+            local hum = v.Character:FindFirstChildOfClass("Humanoid")
+            if not hum then continue end
+            if AimSettings.DeadCheck and hum.Health <= 0 then continue end
+            if AimSettings.ForcefieldCheck and v.Character:FindFirstChildOfClass("ForceField") then continue end
+
+            local part = v.Character[AimSettings.TargetPart]
+            local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+            
+            if onScreen then
+                local magnitude = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                if magnitude < shortestDistance then
+                    local distToPlayer = (localRootPos and (localRootPos - part.Position).Magnitude) or 999
+                    if distToPlayer <= AimSettings.MaxDistance then
+                        shortestDistance = magnitude
+                        target = part
+                    end
+                end
+            end
+        end
+    end
+    return target
+end
+
+local function applyGunModifiers()
+    if not GunSettings.Enabled or not LP.Character then return end
+    local tool = LP.Character:FindFirstChildOfClass("Tool")
+    if not tool then return end
+
+    tool:SetAttribute("ProjectileMaxDistance", GunSettings.MaxDistance)
+    if GunSettings.SpreadEnabled then
+        tool:SetAttribute("SpreadDefault", GunSettings.SpreadValue)
+    end
+    if GunSettings.AimFOVEnabled then
+        tool:SetAttribute("aimFOV", GunSettings.AimFOVValue)
+    end
+    if GunSettings.AimFOVScopeEnabled then
+        tool:SetAttribute("aimFOVScope", GunSettings.AimFOVScopeValue)
+    end
+end
+
+task.spawn(function()
+    while true do
+        if GunSettings.Enabled then
+            applyGunModifiers()
+        end
+        task.wait(1)
+    end
+end)
+
+local function getBandage()
+    if not LP.Character then return nil end
+    return LP.Character:FindFirstChild("Bandage") or LP.Backpack:FindFirstChild("Bandage")
+end
+
+local function sendHealSignal(targetChar)
+    local bandage = getBandage()
+    if not bandage or not targetChar or not targetChar:FindFirstChild("Humanoid") then return end
+
+    local args = {
+        [1] = {
+            Target = "Ally",
+            Tool = bandage,
+            Player = LP,
+            Character = LP.Character,
+            animationList = { healAnimation = Instance.new("Animation") }
+        },
+        [2] = targetChar:FindFirstChild("RightUpperArm") or targetChar:FindFirstChild("HumanoidRootPart"),
+        [3] = targetChar:FindFirstChild("Humanoid")
+    }
+    
+    local healEvent = ReplicatedStorage:WaitForChild("ServerEvents"):WaitForChild("Heal")
+    healEvent:FireServer(unpack(args))
+end
+
+local function ResetMedicState()
+    if MedicSettings.AutoHealAlly or MedicSettings.AutoHealSelf then
+        getBandage() 
+    end
+end
+
+task.spawn(function()
+    while true do
+        task.wait(1)
+        ResetMedicState()
+    end
+end)
+
+local function ForceEquipBandage()
+    local character = LP.Character
+    if not character then return end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+
+    local currentTool = character:FindFirstChildOfClass("Tool")
+    if currentTool and currentTool.Name == "Bandage" then
+        return
+    end
+
+    local bandage = LP.Backpack:FindFirstChild("Bandage") or character:FindFirstChild("Bandage")
+    if bandage and bandage.Parent ~= character then
+        humanoid:EquipTool(bandage)
+    end
+end
+
+task.spawn(function()
+    while true do
+        if (MedicSettings.AutoHealAlly or MedicSettings.AutoHealSelf) and MedicSettings.AutoEquipBandage then
+            ForceEquipBandage()
+        end
+        task.wait(0.2) 
+    end
+end)
+
+local ShootEvent = ReplicatedStorage:WaitForChild("ServerEvents"):WaitForChild("Shoot")
+
+local function getSilentPos(target)
+    if not target then return nil end
+    local pos = target.Position
+    if AimSettings.PredictionEnabled then
+        local ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
+        pos = pos + (target.Velocity * (ping * AimSettings.PredictIntensity))
+    end
+    return pos
+end
+
+local function handleInstantJump()
+    task.spawn(function()
+        while JumpSettings.Enabled do
+            if LP.Character then
+                local jumpTweaker = LP.Character:FindFirstChild("JumpTweakerLoader")
+                if jumpTweaker and (jumpTweaker:IsA("Script") or jumpTweaker:IsA("LocalScript")) then
+                    if jumpTweaker.Disabled == false then
+                        jumpTweaker.Disabled = true
+                    end
+                end
+            end
+            task.wait(0.1)
+        end
+    end)
+end
+
+task.spawn(function()
+    RunService.Heartbeat:Connect(function()
+        if not LP.Character or not LP.Character:FindFirstChild("Humanoid") then return end
+        local hum = LP.Character.Humanoid
+        local root = LP.Character:FindFirstChild("HumanoidRootPart")
+ 
+        if JumpSettings.BhopEnabled and hum.FloorMaterial ~= Enum.Material.Air then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+
+        if JumpSettings.InfJumpEnabled and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+            task.wait()
+            hum:ChangeState(Enum.HumanoidStateType.Landed)
+        end
+
+        if JumpSettings.FloatEnabled and root then
+            local currentVel = root.AssemblyLinearVelocity
+            root.AssemblyLinearVelocity = Vector3.new(currentVel.X, 0.5, currentVel.Z) 
+        end
+    end)
+end)
+
+local function SetupJumpPower(char)
+    local hum = char:WaitForChild("Humanoid")
+    hum.StateChanged:Connect(function(_, newState)
+        if newState == Enum.HumanoidStateType.Jumping and JumpSettings.JumpPowerEnabled then
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if root then
+                RunService.RenderStepped:Wait()
+                root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, JumpSettings.JumpPowerValue, root.AssemblyLinearVelocity.Z)
+            end
+        end
+    end)
+end
+
+if LP.Character then SetupJumpPower(LP.Character) end
+LP.CharacterAdded:Connect(SetupJumpPower)
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "FOV_Gui"
+ScreenGui.Parent = game.CoreGui or LP:WaitForChild("PlayerGui")
+ScreenGui.IgnoreGuiInset = true 
+
+local FOVFrame = Instance.new("Frame")
+FOVFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+FOVFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+FOVFrame.BackgroundTransparency = 1 
+FOVFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+FOVFrame.Visible = AimSettings.ShowFOV
+FOVFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(1, 0)
+UICorner.Parent = FOVFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = CameraSettings.FOVColor
+UIStroke.Thickness = 1
+UIStroke.Parent = FOVFrame
+
+local TargetHudGui = Instance.new("ScreenGui")
+TargetHudGui.Name = "TargetHUD_Gui"
+TargetHudGui.Parent = game.CoreGui or LP:WaitForChild("PlayerGui")
+TargetHudGui.IgnoreGuiInset = true
+
+local TargetFrame = Instance.new("Frame")
+TargetFrame.Parent = TargetHudGui
+TargetFrame.Size = UDim2.new(0, 250, 0, 45)
+TargetFrame.Position = UDim2.new(0, 15, 0.5, 0)
+TargetFrame.BackgroundTransparency = 1
+TargetFrame.Visible = false
+
+local WorkingAimLabel = Instance.new("TextLabel")
+WorkingAimLabel.Parent = TargetFrame
+WorkingAimLabel.Size = UDim2.new(1, 0, 0, 15)
+WorkingAimLabel.Position = UDim2.new(0, 0, 0, -15)
+WorkingAimLabel.BackgroundTransparency = 1
+WorkingAimLabel.Font = Enum.Font.Arcade
+WorkingAimLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+WorkingAimLabel.TextStrokeTransparency = 0
+WorkingAimLabel.TextSize = 10
+WorkingAimLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local TargetInfoLabel = Instance.new("TextLabel")
+TargetInfoLabel.Parent = TargetFrame
+TargetInfoLabel.Size = UDim2.new(1, 0, 1, 0)
+TargetInfoLabel.BackgroundTransparency = 1
+TargetInfoLabel.Font = Enum.Font.Arcade
+TargetInfoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TargetInfoLabel.TextStrokeTransparency = 0
+TargetInfoLabel.TextSize = 14
+TargetInfoLabel.TextXAlignment = Enum.TextXAlignment.Left
+TargetInfoLabel.TextYAlignment = Enum.TextYAlignment.Top
+
+local WarningGui = Instance.new("ScreenGui")
+WarningGui.Name = "GrenadeWarningGui"
+WarningGui.Parent = game.CoreGui or LP:WaitForChild("PlayerGui")
+WarningGui.IgnoreGuiInset = true
+
+local WarningText = Instance.new("TextLabel")
+WarningText.Size = UDim2.new(0, 200, 0, 50)
+WarningText.Position = UDim2.new(0, 50, 0.4, 0)
+WarningText.BackgroundTransparency = 1
+WarningText.TextColor3 = Color3.fromRGB(255, 0, 0)
+WarningText.TextStrokeTransparency = 0
+WarningText.TextSize = 30
+WarningText.Font = Enum.Font.Arcade
+WarningText.Text = "Grenade!!!"
+WarningText.Visible = false
+WarningText.Parent = WarningGui
+
+local function ApplyESP(player)
+    if player == LP then return end
+    
+    local function createESP()
+        if not player.Character then return end
+        
+        local highlight = player.Character:FindFirstChild("ESPHighlight") or Instance.new("Highlight")
+        highlight.Name = "ESPHighlight"
+        highlight.Parent = player.Character
+        highlight.FillTransparency = AimSettings.ESPTransparency
+        highlight.OutlineTransparency = 0.1
+        highlight.FillColor = player.TeamColor.Color 
+        highlight.Enabled = AimSettings.ESPEnabled
+
+        local nameGuiTop = player.Character:FindFirstChild("NameESP_Top") or Instance.new("BillboardGui")
+        nameGuiTop.Name = "NameESP_Top"
+        nameGuiTop.Adornee = player.Character:FindFirstChild("Head") or player.Character:FindFirstChild("HumanoidRootPart") or player.Character.PrimaryPart
+        nameGuiTop.Size = UDim2.new(0, 200, 0, 50)
+        nameGuiTop.AlwaysOnTop = true
+        nameGuiTop.ExtentsOffset = Vector3.new(0, 2, 0) 
+        nameGuiTop.Parent = player.Character
+
+        local labelTop = nameGuiTop:FindFirstChild("TextLabel") or Instance.new("TextLabel")
+        labelTop.Size = UDim2.new(1, 0, 1, 0)
+        labelTop.BackgroundTransparency = 1
+        labelTop.TextColor3 = player.TeamColor.Color
+        labelTop.TextStrokeTransparency = 0.5
+        labelTop.TextSize = AimSettings.NameESPSize 
+        labelTop.Font = Enum.Font.GothamBold
+        labelTop.Parent = nameGuiTop
+        labelTop.Visible = AimSettings.ShowNames and AimSettings.ESPEnabled
+
+        local nameGuiBottom = player.Character:FindFirstChild("NameESP_Bottom") or Instance.new("BillboardGui")
+        nameGuiBottom.Name = "NameESP_Bottom"
+        nameGuiBottom.Adornee = player.Character:FindFirstChild("Torso") or player.Character:FindFirstChild("UpperTorso") or player.Character:FindFirstChild("HumanoidRootPart") or player.Character.PrimaryPart
+        nameGuiBottom.Size = UDim2.new(0, 200, 0, 50)
+        nameGuiBottom.AlwaysOnTop = true
+        nameGuiBottom.ExtentsOffset = Vector3.new(0, -10, 0) 
+        nameGuiBottom.Parent = player.Character
+
+        local labelBottom = nameGuiBottom:FindFirstChild("TextLabel") or Instance.new("TextLabel")
+        labelBottom.Size = UDim2.new(1, 0, 1, 0)
+        labelBottom.BackgroundTransparency = 1
+        labelBottom.TextColor3 = player.TeamColor.Color
+        labelBottom.TextStrokeTransparency = 0.5
+        labelBottom.TextSize = AimSettings.NameESPSize 
+        labelBottom.Font = Enum.Font.GothamBold
+        labelBottom.Parent = nameGuiBottom
+        labelBottom.Visible = AimSettings.ShowNames and AimSettings.ESPEnabled
+    end
+
+    player.CharacterAdded:Connect(function() task.wait(0.5) createESP() end)
+    createESP()
+end
+
+task.spawn(function()
+    while true do
+        task.wait(1) 
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p ~= LP and p.Character then
+                local highlight = p.Character:FindFirstChild("ESPHighlight")
+                local nameGuiTop = p.Character:FindFirstChild("NameESP_Top")
+                if highlight and nameGuiTop then
+                    highlight.FillTransparency = AimSettings.ESPTransparency
+                    highlight.Enabled = AimSettings.ESPEnabled
+                else
+                    ApplyESP(p) 
+                end
+            end
+        end
+    end
+end)
+
+local friendlyNames = {}
+task.spawn(function()
+    while true do
+        local newFriendly = {}
+        if LP then
+            table.insert(newFriendly, LP.Name)
+        end
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if LP and p ~= LP and p.Team == LP.Team then
+                table.insert(newFriendly, p.Name)
+            end
+        end
+        friendlyNames = newFriendly
+        task.wait(10)
+    end
+end)
+
+local function isFriendlyGrenade(name)
+    for _, friendlyName in ipairs(friendlyNames) do
+        if string.find(name, "^" .. friendlyName) then
+               return true
+        end
+    end
+    return false
+end
+
+local trackedGrenades = {}
+local trackedLadders = {}
+local trackedDuckboards = {}
+local trackedRoofs = {}
+local trackedWires = {}
+local trackedSandbags = {}
+local trackedTallSandbags = {}
+
+local function createPropESP(v, trackerDict)
+    if not trackerDict[v] then
+        local bg = Instance.new("BillboardGui")
+        bg.Size = UDim2.new(0, 200, 0, 50)
+        bg.AlwaysOnTop = true
+        bg.Parent = v
+        
+        local tl = Instance.new("TextLabel", bg)
+        tl.Size = UDim2.new(1, 0, 1, 0)
+        tl.BackgroundTransparency = 1
+        tl.TextStrokeTransparency = 0.5
+        tl.Font = Enum.Font.GothamBold
+        
+        local hl = Instance.new("Highlight")
+        hl.FillTransparency = 0.5
+        hl.OutlineTransparency = 0.1
+        hl.Parent = v
+        
+        trackerDict[v] = {gui = bg, label = tl, highlight = hl}
+    end
+end
+
+task.spawn(function()
+    while task.wait(0.5) do
+        for _, v in pairs(workspace:GetChildren()) do
+            if v:IsA("Model") and string.match(v.Name, "Grenade$") then
+                if not trackedGrenades[v] then
+                    local isFriendly = isFriendlyGrenade(v.Name)
+                    local startTime = tick()
+                    local bg = Instance.new("BillboardGui")
+                    bg.Size = UDim2.new(0, 200, 0, 50)
+                    bg.AlwaysOnTop = true
+                    local targetPart = v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart")
+                    bg.Adornee = targetPart
+                    bg.Parent = v
+
+                    local tl = Instance.new("TextLabel", bg)
+                    tl.Size = UDim2.new(1, 0, 1, 0)
+                    tl.BackgroundTransparency = 1
+                    tl.TextStrokeTransparency = 0.5
+                    tl.Font = Enum.Font.GothamBold
+                    tl.Text = "Grenade"
+                    
+                    local hl = Instance.new("Highlight")
+                    hl.FillTransparency = 0.5
+                    hl.OutlineTransparency = 0.1
+                    hl.Parent = v
+
+                    local warnSphere = Instance.new("Part")
+                    warnSphere.Name = "GrenadeWarningSphere"
+                    warnSphere.Shape = Enum.PartType.Ball
+                    warnSphere.Size = Vector3.new(40, 40, 40)
+                    warnSphere.Transparency = 0.7
+                    warnSphere.Color = AimSettings.GrenadeColor
+                    warnSphere.Material = Enum.Material.ForceField
+                    warnSphere.CanCollide = false
+                    warnSphere.Anchored = true
+                    warnSphere.CastShadow = false
+                    warnSphere.Parent = workspace
+
+                    trackedGrenades[v] = {
+                        startTime = startTime,
+                        gui = bg,
+                        label = tl,
+                        highlight = hl,
+                        sphere = warnSphere,
+                        isFriendly = isFriendly
+                    }
+                end
+            end
+        end
+        
+        local constructs = workspace:FindFirstChild("Constructs")
+        if constructs then
+            local constructed = constructs:FindFirstChild("Constructed")
+            if constructed then
+                for _, v in pairs(constructed:GetChildren()) do
+                    if v:IsA("Model") then
+                        if string.match(v.Name, "HMG$") or string.match(v.Name, "HMG Shielded$") then
+                            createPropESP(v, trackedHMGs)
+                        elseif string.match(v.Name, "Ladder") then
+                            createPropESP(v, trackedLadders)
+                        elseif string.match(v.Name, "Duckboard") then
+                            createPropESP(v, trackedDuckboards)
+                        elseif string.match(v.Name, "CorrugateRoof") then
+                            createPropESP(v, trackedRoofs)
+                        elseif string.match(v.Name, "BarbedWire") then
+                            createPropESP(v, trackedWires)
+                        elseif string.match(v.Name, "TallSandbag") then
+                            createPropESP(v, trackedTallSandbags)
+                        elseif string.match(v.Name, "Sandbag") then
+                            createPropESP(v, trackedSandbags)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+local function GetPing()
+    local ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+    return (ping > 0 and ping / 1000) or 0.1
+end
+
+local function IsVisible(targetPart)
+    if not LP.Character or not LP.Character:FindFirstChild("Head") then return false end
+    local origin = LP.Character.Head.Position 
+    local destination = targetPart.Position
+    local direction = (destination - origin)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    
+    local ignoreList = {LP.Character, workspace.CurrentCamera}
+    for hmg, _ in pairs(trackedHMGs) do
+        table.insert(ignoreList, hmg)
+    end
+    
+    for i = 1, 4 do 
+        raycastParams.FilterDescendantsInstances = ignoreList
+        local result = workspace:Raycast(origin, direction, raycastParams)
+        if result then
+            local hit = result.Instance
+            if hit:IsDescendantOf(targetPart.Parent) then return true end
+            if hit.CanCollide == false or hit.Transparency == 1 then
+                table.insert(ignoreList, hit)
+            else 
+                return false 
+            end
+        else return true end
+    end
+    return false 
+end
+
+local function GetTargetV2() 
+    local localRoot = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    local localRootPos = localRoot and localRoot.Position
+
+    if AimSettings.StickyAimEnabled and CurrentStickyTarget then
+        local hum = CurrentStickyTarget.Parent and CurrentStickyTarget.Parent:FindFirstChildOfClass("Humanoid")
+        if hum and hum.Health > 0 then
+            local pos, onScreen = Camera:WorldToViewportPoint(CurrentStickyTarget.Position)
+            if onScreen then
+                local center, _ = GetFOVCenter()
+                local magnitude = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                if magnitude < AimSettings.FOV then
+                    local distToPlayer = (localRootPos and (localRootPos - CurrentStickyTarget.Position).Magnitude) or 999
+                    if distToPlayer <= AimSettings.MaxDistance then
+                        if not AimSettings.WallCheck or IsVisible(CurrentStickyTarget) then
+                            return CurrentStickyTarget
+                        end
+                    end
+                end
+            end
+        end
+        CurrentStickyTarget = nil
+    end
+
+    local target = nil
+    local shortestDistance = AimSettings.FOV
+    local center, _ = GetFOVCenter()
+
+    for _, v in pairs(game.Players:GetPlayers()) do
+        if v ~= LP and v.Character and v.Character:FindFirstChild(AimSettings.TargetPart) then
+            if v.Team == LP.Team then continue end
+            local hum = v.Character:FindFirstChildOfClass("Humanoid")
+            if not hum then continue end
+            if AimSettings.DeadCheck and hum.Health <= 0 then continue end
+            if AimSettings.ForcefieldCheck and v.Character:FindFirstChildOfClass("ForceField") then continue end
+
+            local part = v.Character[AimSettings.TargetPart]
+            local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+            if onScreen then
+                local magnitude = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                if magnitude < shortestDistance then
+                    local distToPlayer = (localRootPos and (localRootPos - part.Position).Magnitude) or 999
+                    if distToPlayer <= AimSettings.MaxDistance then
+                        if not AimSettings.WallCheck or IsVisible(part) then
+                            shortestDistance = magnitude
+                            target = part
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if target and AimSettings.StickyAimEnabled then
+        CurrentStickyTarget = target
+    end
+    return target
+end
+
+local function GetAllyTargetInFOV()
+    local target = nil
+    local shortestDistance = AimSettings.FOV
+    local center, _ = GetFOVCenter()
+    local localRoot = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    local localRootPos = localRoot and localRoot.Position
+
+    for _, v in pairs(game.Players:GetPlayers()) do
+        if v ~= LP and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+            if v.Team ~= LP.Team then continue end 
+            local hum = v.Character:FindFirstChildOfClass("Humanoid")
+            if not hum then continue end
+            if AimSettings.DeadCheck and hum.Health <= 0 then continue end
+            if hum.Health >= hum.MaxHealth then continue end
+            if AimSettings.ForcefieldCheck and v.Character:FindFirstChildOfClass("ForceField") then continue end
+
+            local part = v.Character.HumanoidRootPart
+            local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+            if onScreen then
+                local magnitude = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                if magnitude < shortestDistance then
+                    local distToPlayer = (localRootPos and (localRootPos - part.Position).Magnitude) or 999
+                    if distToPlayer <= MedicSettings.HealDistance then
+                        shortestDistance = magnitude
+                        target = part
+                    end
+                end
+            end
+        end
+    end
+    return target
+end
+
+local AimTab = Window:CreateTab("Aim", "crosshair")
+local ClassTab = Window:CreateTab("Class stuff", "plus")
+local GunTab = Window:CreateTab("Gun", "crosshair") 
+local VisualTab = Window:CreateTab("Visuals", "eye")
+local MoveTab = Window:CreateTab("Movement", "wind")
+local MiscTab = Window:CreateTab("Misc", "more-horizontal")
+local InfoTab = Window:CreateTab("info", "info")
+
+InfoTab:CreateParagraph({Title = "Update Re-1.1C", Content = "-Huhhh....lazy for a update log.\n-THIS HUB IS ALMOST DEAD...sorry."})
+InfoTab:CreateParagraph({Title = "Message", Content = "Also Support Me By Like This Script,Join My Server,Only That Action Make Me Happy Enough"})
+InfoTab:CreateParagraph({Title = "Credit", Content = "Creator And Owner-Edzefd And EdzefdXA(@edzefd-@Edzefd_local)\n-ScriptBlox accout-@EdzefdScript\n-RScript accout-@EdzefdScriptR\n-Team-Edzefd's Local Team(Hidden)\n-Discord Server:https://discord.gg/yTt9pGEBD(MeHub© Script Roblox)"})
+InfoTab:CreateParagraph({Title = "Open Source", Content = "Script Is Now Open Source(My Team Request) Just Dont Steal it Please Or We Will Obfuscate Again"})
+
+InfoTab:CreateButton({
+    Name = "Copy Discord Server Link",
+    Callback = function()
+        setclipboard("https://discord.gg/yTt9pGEBD")
+        Rayfield:Notify({Title = "Success", Content = "Copied Discord Server Link!", Duration = 3})
+    end,
+})
+
+MiscTab:CreateSection("Sound Effects")
+MiscTab:CreateToggle({
+    Name = "Enable Sound Effects",
+    CurrentValue = false,
+    Flag = "SoundEffectsToggle",
+    Callback = function(Value)
+        SoundSettings.Enabled = Value
+    end
+})
+
+MiscTab:CreateInput({
+    Name = "Low HP Sound ID",
+    PlaceholderText = "8502168540",
+    RemoveTextAfterFocusLost = false,
+    Flag = "LowHPSoundInput",
+    Callback = function(Text)
+        local id = Text:match("%d+")
+        if id then LowHPSound.SoundId = "rbxassetid://" .. id end
+    end
+})
+
+MiscTab:CreateInput({
+    Name = "Kill Sound ID",
+    PlaceholderText = "9159562579",
+    RemoveTextAfterFocusLost = false,
+    Flag = "KillSoundInput",
+    Callback = function(Text)
+        local id = Text:match("%d+")
+        if id then customKillId = id end
+    end
+})
+
+MiscTab:CreateButton({
+    Name = "Remove Leaves & Trees",
+    Callback = function()
+        pcall(function()
+            local trees = workspace:FindFirstChild("LoadedMap") 
+                and workspace.LoadedMap:FindFirstChild("Map")
+                and workspace.LoadedMap.Map:FindFirstChild("Structures")
+                and workspace.LoadedMap.Map.Structures:FindFirstChild("Foliage")
+                and workspace.LoadedMap.Map.Structures.Foliage:FindFirstChild("Trees")
+            
+            if trees then
+                local count = 0
+                for _, v in ipairs(trees:GetChildren()) do
+                    v:Destroy()
+                    count = count + 1
+                end
+                Rayfield:Notify({Title = "Success", Content = "Removed " .. count .. " trees/leaves.", Duration = 3})
+            else
+                Rayfield:Notify({Title = "Error", Content = "Trees folder not found.", Duration = 3})
+            end
+        end)
+    end,
+})
+
+MiscTab:CreateButton({
+    Name = "Reduce Graphics",
+    Callback = function()
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 9e9
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") and not v.Parent:FindFirstChild("Humanoid") then
+                v.Material = Enum.Material.Plastic
+                v.Reflectance = 0
+            elseif v:IsA("Decal") or v:IsA("Texture") then
+                v.Transparency = 1
+            elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+                 v.Enabled = false
+            end
+        end
+    end
+})
+
+MiscTab:CreateSection("Server Hop")
+
+MiscTab:CreateButton({
+    Name = "Low Ping Server",
+    Callback = function()
+        Rayfield:Notify({Title = "Server Hop", Content = "Searching for low ping server...", Duration = 3})
+        local HttpService = game:GetService("HttpService")
+        local TeleportService = game:GetService("TeleportService")
+        local placeId = game.PlaceId
+        local servers = {}
+        local req = request or http_request or (syn and syn.request)
+        if req then
+            pcall(function()
+                local response = req({
+                    Url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100",
+                    Method = "GET"
+                })
+                if response.Success then
+                    local data = HttpService:JSONDecode(response.Body)
+                    if data and data.data then
+                        for _, server in ipairs(data.data) do
+                            if server.playing < server.maxPlayers and server.ping <= 50 and server.id ~= game.JobId then
+                                table.insert(servers, server)
+                            end
+                        end
+                    end
+                end
+            end)
+            if #servers > 0 then
+                table.sort(servers, function(a, b) return a.ping < b.ping end)
+                TeleportService:TeleportToPlaceInstance(placeId, servers[1].id, LP)
+            else
+                Rayfield:Notify({Title = "Failed", Content = "No low ping servers found.", Duration = 3})
+            end
+        else
+            Rayfield:Notify({Title = "Error", Content = "Your executor does not support HTTP requests.", Duration = 3})
+        end
+    end,
+})
+
+MiscTab:CreateButton({
+    Name = "Small Server",
+    Callback = function()
+        Rayfield:Notify({Title = "Server Hop", Content = "Searching for small server...", Duration = 3})
+        local HttpService = game:GetService("HttpService")
+        local TeleportService = game:GetService("TeleportService")
+        local placeId = game.PlaceId
+        local req = request or http_request or (syn and syn.request)
+        if req then
+            local servers = {}
+            pcall(function()
+                local response = req({
+                    Url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100",
+                    Method = "GET"
+                })
+                if response.Success then
+                    local data = HttpService:JSONDecode(response.Body)
+                    if data and data.data then
+                        for _, server in ipairs(data.data) do
+                            if server.playing > 0 and server.playing < 5 and server.id ~= game.JobId then
+                                table.insert(servers, server)
+                            end
+                        end
+                    end
+                end
+            end)
+            if #servers > 0 then
+                table.sort(servers, function(a, b) return a.playing < b.playing end)
+                TeleportService:TeleportToPlaceInstance(placeId, servers[1].id, LP)
+            else
+                Rayfield:Notify({Title = "Failed", Content = "No small servers found.", Duration = 3})
+            end
+        else
+            Rayfield:Notify({Title = "Error", Content = "Your executor does not support HTTP requests.", Duration = 3})
+        end
+    end,
+})
+
+MiscTab:CreateButton({
+    Name = "New Server",
+    Callback = function()
+        Rayfield:Notify({Title = "Server Hop", Content = "Searching for new server...", Duration = 3})
+        local HttpService = game:GetService("HttpService")
+        local TeleportService = game:GetService("TeleportService")
+        local placeId = game.PlaceId
+        local req = request or http_request or (syn and syn.request)
+        if req then
+            local servers = {}
+            pcall(function()
+                local response = req({
+                    Url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100",
+                    Method = "GET"
+                })
+                if response.Success then
+                    local data = HttpService:JSONDecode(response.Body)
+                    if data and data.data then
+                        for _, server in ipairs(data.data) do
+                            if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                                table.insert(servers, server)
+                            end
+                        end
+                    end
+                end
+            end)
+            if #servers > 0 then
+                TeleportService:TeleportToPlaceInstance(placeId, servers[1].id, LP)
+            else
+                Rayfield:Notify({Title = "Failed", Content = "No new servers found.", Duration = 3})
+            end
+        else
+            Rayfield:Notify({Title = "Error", Content = "Your executor does not support HTTP requests.", Duration = 3})
+        end
+    end,
+})
+
+ClassTab:CreateSection("Medic")
+ClassTab:CreateToggle({
+   Name = "Auto Heal Self",
+   CurrentValue = false,
+   Flag = "AutoHealSelf",
+   Callback = function(Value)
+       MedicSettings.AutoHealSelf = Value
+       task.spawn(function()
+           while MedicSettings.AutoHealSelf do
+                if LP.Character and LP.Character:FindFirstChild("Humanoid") then
+                   local hum = LP.Character.Humanoid
+                   if hum.Health < (hum.MaxHealth * (MedicSettings.HealThreshold / 100)) then
+                       sendHealSignal(LP.Character)
+                   end
+                end
+               task.wait(MedicSettings.HealDelay)
+           end
+       end)
+    end,
+})
+
+ClassTab:CreateToggle({
+   Name = "Auto Heal Ally",
+   CurrentValue = false,
+   Flag = "AutoHealAlly",
+   Callback = function(Value)
+        MedicSettings.AutoHealAlly = Value
+        task.spawn(function()
+            while MedicSettings.AutoHealAlly do
+                local allyPart = GetAllyTargetInFOV()
+                if allyPart and allyPart.Parent then
+                    local tChar = allyPart.Parent
+                    if tChar:FindFirstChild("Humanoid") and tChar.Humanoid.Health < (tChar.Humanoid.MaxHealth * (MedicSettings.HealThreshold / 100)) then
+                        sendHealSignal(tChar)
+                        task.wait(0.1)
+                     end
+                end
+                task.wait(MedicSettings.HealDelay)
+             end
+        end)
+   end,
+})
+
+ClassTab:CreateToggle({
+   Name = "Auto Aid (Revive)",
+   CurrentValue = false,
+   Flag = "AutoAidEnabled",
+   Callback = function(Value)
+       MedicSettings.AutoAid = Value
+   end,
+})
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if MedicSettings.AutoAid and LP.Character then
+            local localRoot = LP.Character:FindFirstChild("HumanoidRootPart")
+            if localRoot then
+                for _, p in pairs(game.Players:GetPlayers()) do
+                    if p ~= LP and p.Team == LP.Team and p.Character then
+                        local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                        local root = p.Character:FindFirstChild("HumanoidRootPart")
+                        if hum and root and hum.Health <= 0 then
+                            local dist = (localRoot.Position - root.Position).Magnitude
+                            if dist <= 15 then
+                                local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
+                                if onScreen then
+                                    for _, desc in ipairs(p.Character:GetDescendants()) do
+                                        if desc:IsA("ProximityPrompt") and desc.Enabled then
+                                            desc:InputHoldBegin()
+                                            task.wait(desc.HoldDuration + 0.1)
+                                            desc:InputHoldEnd()
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+ClassTab:CreateSlider({
+   Name = "Heal Distance",
+   Range = {5, 50},
+   Increment = 5,
+   CurrentValue = 20,
+   Suffix = " Studs",
+   Flag = "HealDistance",
+   Callback = function(Value) MedicSettings.HealDistance = Value end,
+})
+
+ClassTab:CreateSlider({
+   Name = "Heal Delay",
+   Range = {0.1, 2},
+   Increment = 0.1,
+   CurrentValue = 0.5,
+   Suffix = " s",
+   Flag = "HealDelay",
+   Callback = function(Value) MedicSettings.HealDelay = Value end,
+})
+
+ClassTab:CreateSlider({
+   Name = "Heal Health Threshold (%)",
+   Range = {0, 100},
+   Increment = 5,
+   CurrentValue = 75,
+   Suffix = " %",
+   Flag = "HealThreshold",
+   Callback = function(Value) 
+       MedicSettings.HealThreshold = Value 
+   end,
+})
+
+ClassTab:CreateToggle({
+   Name = "Auto Equip Bandage",
+   Info = "May cause some bugs like gun aim animation,try re-Equip any Weapon",
+   CurrentValue = true,
+   Flag = "AutoEquipBandage",
+   Callback = function(Value) MedicSettings.AutoEquipBandage = Value end,
+})
+
+AimTab:CreateSection("Aim")
+AimTab:CreateToggle({
+   Name = "Aim Bot",
+   CurrentValue = true,
+   Flag = "Aimbot",
+   Callback = function(v) AimSettings.Enabled = v end,
+})
+
+AimTab:CreateToggle({
+   Name = "Silent Aim",
+   CurrentValue = false,
+   Flag = "SilentAim",
+   Callback = function(v) AimSettings.SilentAimEnabled = v end,
+})
+
+AimTab:CreateToggle({
+   Name = "Silent Aim V2 (Metatable Hook)",
+   CurrentValue = false,
+   Flag = "SilentAimV2",
+   Callback = function(v) AimSettings.SilentAimV2Enabled = v end,
+})
+
+AimTab:CreateToggle({
+   Name = "Silent Aim V3 (WeaponModule Hook)",
+   CurrentValue = false,
+   Flag = "SilentAimV3",
+   Callback = function(v) AimSettings.SilentAimV3Enabled = v end,
+})
+
+AimTab:CreateToggle({
+   Name = "Sticky Aim",
+   CurrentValue = false,
+   Flag = "StickyAim",
+   Callback = function(v) AimSettings.StickyAimEnabled = v end,
+})
+
+AimTab:CreateToggle({
+   Name = "Forcefield Check",
+   CurrentValue = true,
+   Flag = "ForcefieldCheck",
+   Callback = function(v) AimSettings.ForcefieldCheck = v end,
+})
+
+AimTab:CreateToggle({
+   Name = "Dead Check",
+   CurrentValue = true,
+   Flag = "DeadCheck",
+   Callback = function(v) AimSettings.DeadCheck = v end,
+})
+
+AimTab:CreateLabel("WARNING:Silent Aim V2 May cause game crashes on some maps with rain.")
+
+AimTab:CreateSlider({
+   Name = "Silent Aim V2 Distance Limit",
+   Range = {0, 120},
+   Increment = 5,
+   CurrentValue = 120,
+   Suffix = " Studs",
+   Flag = "SilentAimV2Distance",
+   Callback = function(v) AimSettings.SilentAimV2MaxDistance = v end,
+})
+
+AimTab:CreateToggle({
+   Name = "Silent Aim V2 Wall Check",
+   CurrentValue = true,
+   Flag = "WallCheckV2",
+   Callback = function(v) AimSettings.WallCheckV2 = v end,
+})
+
+AimTab:CreateDropdown({
+   Name = "Aim Target Part",
+   Options = {"Head", "HumanoidRootPart"},
+   CurrentOption = {"Head"},
+   Flag = "AimTargetPart",
+   Callback = function(Option) AimSettings.TargetPart = Option[1] end,
+})
+
+AimTab:CreateSlider({
+   Name = "Smoothness",
+   Range = {0.01, 1},
+   Increment = 0.01,
+   CurrentValue = 0.28,
+   Suffix = " Val",
+   Flag = "Smoothness",
+   Callback = function(v) AimSettings.Smoothness = v end,
+})
+
+AimTab:CreateSlider({
+   Name = "Max Distance",
+   Range = {10, 1000},
+   Increment = 10,
+   CurrentValue = 500,
+   Suffix = " Studs",
+   Flag = "MaxDistance",
+   Callback = function(v) AimSettings.MaxDistance = v end,
+})
+
+AimTab:CreateToggle({
+   Name = "Wall Check",
+   CurrentValue = true,
+   Flag = "WallCheck",
+   Callback = function(v) AimSettings.WallCheck = v end,
+})
+
+AimTab:CreateToggle({
+   Name = "Aim Prediction",
+   CurrentValue = true,
+   Flag = "AimPrediction",
+   Callback = function(v) AimSettings.PredictionEnabled = v end,
+})
+
+AimTab:CreateToggle({
+   Name = "Auto Set Prediction",
+   CurrentValue = false,
+   Flag = "AutoSetPrediction",
+   Callback = function(v) AimSettings.AutoPrediction = v end,
+})
+
+AimTab:CreateSlider({
+   Name = "Prediction Intensity",
+   Range = {0, 3},
+   Increment = 0.1,
+   CurrentValue = 1,
+   Suffix = "x",
+   Flag = "PredictionIntensity",
+   Callback = function(v) AimSettings.PredictIntensity = v end,
+})
+
+VisualTab:CreateSection("Target Info")
+VisualTab:CreateToggle({
+   Name = "Show Target HUD",
+   CurrentValue = true,
+   Flag = "ShowTargetHUD",
+   Callback = function(v) AimSettings.ShowTargetInfo = v end,
+})
+
+VisualTab:CreateToggle({
+   Name = "Show Movement Status",
+   CurrentValue = true,
+   Flag = "ShowMovementStatus",
+   Callback = function(v) AimSettings.ShowTargetMoveStatus = v end,
+})
+
+VisualTab:CreateToggle({
+   Name = "Show Working Aim",
+   CurrentValue = true,
+   Flag = "ShowWorkingAim",
+   Callback = function(v) AimSettings.ShowTargetWorkingAim = v end,
+})
+
+VisualTab:CreateToggle({
+   Name = "Show Target Distance",
+   CurrentValue = true,
+   Flag = "ShowTargetDistance",
+   Callback = function(v) AimSettings.ShowTargetDistance = v end,
+})
+
+VisualTab:CreateSection("ESP&HUD")
+VisualTab:CreateToggle({
+   Name = "Enable ESP",
+   CurrentValue = true,
+   Flag = "ESPEnabled",
+   Callback = function(v) 
+        AimSettings.ESPEnabled = v 
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("ESPHighlight") then
+                 p.Character.ESPHighlight.Enabled = v
+            end
+        end
+   end,
+})
+
+VisualTab:CreateToggle({
+   Name = "Names ESP",
+   CurrentValue = true,
+   Flag = "ShowNames",
+   Callback = function(v) AimSettings.ShowNames = v end,
+})
+
+VisualTab:CreateButton({
+    Name = "Refresh ESP (Players & Props)",
+    Callback = function()
+         for _, p in pairs(game.Players:GetPlayers()) do
+            if p ~= LP and p.Character then
+                local hl = p.Character:FindFirstChild("ESPHighlight")
+                local nt = p.Character:FindFirstChild("NameESP_Top")
+                local nb = p.Character:FindFirstChild("NameESP_Bottom")
+                if hl then hl:Destroy() end
+                if nt then nt:Destroy() end
+                if nb then nb:Destroy() end
+                ApplyESP(p)
+            end
+        end
+
+        local function clearProps(dict)
+             for _, data in pairs(dict) do
+                if data.gui then data.gui:Destroy() end
+                if data.highlight then data.highlight:Destroy() end
+                if data.sphere then data.sphere:Destroy() end
+            end
+            table.clear(dict)
+        end
+
+        clearProps(trackedGrenades)
+        clearProps(trackedHMGs)
+        clearProps(trackedLadders)
+        clearProps(trackedDuckboards)
+        clearProps(trackedRoofs)
+        clearProps(trackedWires)
+        clearProps(trackedSandbags)
+        clearProps(trackedTallSandbags)
+        
+        Rayfield:Notify({Title = "ESP Refreshed", Content = "All ESP data has been cleared and will recreate.", Duration = 3})
+    end
+})
+
+VisualTab:CreateSlider({
+   Name = "Name ESP Size",
+   Range = {8, 24},
+   Increment = 1,
+   CurrentValue = 10,
+   Suffix = " px",
+   Flag = "NameESPSize",
+   Callback = function(v) AimSettings.NameESPSize = v end,
+})
+
+VisualTab:CreateSlider({
+   Name = "ESP Name Show Range",
+   Range = {1, 1000},
+   Increment = 10,
+   CurrentValue = 1000,
+   Suffix = " Studs",
+   Flag = "ESPShowRange",
+   Callback = function(v) AimSettings.ESPShowRange = v end,
+})
+
+VisualTab:CreateSlider({
+   Name = "Highlight Transparency",
+   Range = {0, 1},
+   Increment = 0.1,
+   CurrentValue = 0.5,
+   Suffix = " Val",
+   Flag = "ESPTransparency",
+    Callback = function(v) AimSettings.ESPTransparency = v end,
+})
+
+VisualTab:CreateToggle({
+   Name = "Enemy Aim At You Detection(Red Flash)",
+   CurrentValue = false,
+   Flag = "EnemyLookDetection",
+   Callback = function(v) AimSettings.EnemyLookWarning = v end,
+})
+
+VisualTab:CreateSection("ESP Colors")
+VisualTab:CreateToggle({
+   Name = "Use Custom ESP Colors",
+   CurrentValue = false,
+   Flag = "CustomESPColor",
+   Callback = function(v) AimSettings.UseCustomESPColors = v end,
+})
+VisualTab:CreateColorPicker({
+   Name = "Ally ESP Color",
+   Color = Color3.fromRGB(0, 0, 139),
+   Flag = "AllyESPColor",
+   Callback = function(Value) AimSettings.AllyESPColor = Value end
+})
+VisualTab:CreateColorPicker({
+   Name = "Enemy ESP Color",
+   Color = Color3.fromRGB(139, 0, 0),
+   Flag = "EnemyESPColor",
+   Callback = function(Value) AimSettings.EnemyESPColor = Value end
+})
+
+VisualTab:CreateSection("Props ESP")
+VisualTab:CreateToggle({
+   Name = "Show Props Names",
+   CurrentValue = true,
+   Flag = "ShowPropsNames",
+   Callback = function(v) AimSettings.ShowPropsNames = v end,
+})
+
+VisualTab:CreateToggle({
+   Name = "Grenade ESP",
+   CurrentValue = true,
+   Flag = "GrenadeESP",
+   Callback = function(v) AimSettings.GrenadeESP = v end,
+})
+VisualTab:CreateColorPicker({
+   Name = "Grenade ESP Color",
+   Color = Color3.fromRGB(255, 0, 0),
+   Flag = "GrenadeColor",
+   Callback = function(Value) AimSettings.GrenadeColor = Value end
+})
+VisualTab:CreateToggle({
+   Name = "Grenade attack detection (from enemy)",
+   CurrentValue = true,
+   Flag = "GrenadeWarn",
+   Callback = function(v) AimSettings.GrenadeWarning = v end,
+})
+VisualTab:CreateToggle({
+   Name = "HMG ESP",
+   CurrentValue = true,
+   Flag = "HMGESP",
+   Callback = function(v) AimSettings.HMGESP = v end,
+})
+VisualTab:CreateColorPicker({
+   Name = "HMG ESP Color",
+   Color = Color3.fromRGB(0, 255, 0),
+   Flag = "HMGColor",
+   Callback = function(Value) AimSettings.HMGColor = Value end
+})
+VisualTab:CreateToggle({
+   Name = "Ladders ESP",
+   CurrentValue = false,
+   Flag = "LadderESP",
+   Callback = function(v) AimSettings.LadderESP = v end,
+})
+VisualTab:CreateColorPicker({
+   Name = "Ladders ESP Color",
+   Color = Color3.fromRGB(255, 165, 0),
+   Flag = "LadderColor",
+   Callback = function(Value) AimSettings.LadderColor = Value end
+})
+VisualTab:CreateToggle({
+   Name = "Duckboards ESP",
+   CurrentValue = false,
+   Flag = "DuckboardESP",
+   Callback = function(v) AimSettings.DuckboardESP = v end,
+})
+VisualTab:CreateColorPicker({
+   Name = "Duckboards ESP Color",
+   Color = Color3.fromRGB(139, 69, 19),
+   Flag = "DuckboardColor",
+   Callback = function(Value) AimSettings.DuckboardColor = Value end
+})
+VisualTab:CreateToggle({
+   Name = "Corrugate Roofs ESP",
+   CurrentValue = false,
+   Flag = "RoofESP",
+   Callback = function(v) AimSettings.RoofESP = v end,
+})
+VisualTab:CreateColorPicker({
+   Name = "Corrugate Roofs ESP Color",
+   Color = Color3.fromRGB(128, 128, 128),
+   Flag = "RoofColor",
+   Callback = function(Value) AimSettings.RoofColor = Value end
+})
+VisualTab:CreateToggle({
+   Name = "Barbed Wires ESP",
+   CurrentValue = false,
+   Flag = "WireESP",
+   Callback = function(v) AimSettings.WireESP = v end,
+})
+VisualTab:CreateColorPicker({
+   Name = "Barbed Wires ESP Color",
+   Color = Color3.fromRGB(105, 105, 105),
+   Flag = "WireColor",
+   Callback = function(Value) AimSettings.WireColor = Value end
+})
+VisualTab:CreateToggle({
+   Name = "Sandbags ESP",
+   CurrentValue = false,
+   Flag = "SandbagESP",
+   Callback = function(v) AimSettings.SandbagESP = v end,
+})
+VisualTab:CreateColorPicker({
+   Name = "Sandbags ESP Color",
+   Color = Color3.fromRGB(194, 178, 128),
+   Flag = "SandbagColor",
+   Callback = function(Value) AimSettings.SandbagColor = Value end
+})
+VisualTab:CreateToggle({
+   Name = "Tall Sandbags ESP",
+   CurrentValue = false,
+   Flag = "TallSandbagESP",
+   Callback = function(v) AimSettings.TallSandbagESP = v end,
+})
+VisualTab:CreateColorPicker({
+   Name = "Tall Sandbags ESP Color",
+   Color = Color3.fromRGB(160, 140, 95),
+   Flag = "TallSandbagColor",
+   Callback = function(Value) AimSettings.TallSandbagColor = Value end
+})
+
+VisualTab:CreateSection("FOV Customization")
+VisualTab:CreateToggle({
+   Name = "Show FOV Circle",
+   CurrentValue = true,
+   Flag = "ShowFOVCircle",
+   Callback = function(v) AimSettings.ShowFOV = v end,
+})
+
+VisualTab:CreateSlider({
+   Name = "FOV Size",
+   Range = {50, 800},
+   Increment = 10,
+   CurrentValue = 60,
+   Suffix = " px",
+   Flag = "FOVSize",
+   Callback = function(v) AimSettings.FOV = v end,
+})
+
+VisualTab:CreateColorPicker({
+   Name = "FOV Circle Color",
+   Color = Color3.fromRGB(255, 255, 255),
+   Flag = "FOVColor",
+   Callback = function(Value)
+       CameraSettings.FOVColor = Value
+       UIStroke.Color = Value
+   end
+})
+
+VisualTab:CreateToggle({
+   Name = "Rainbow FOV",
+   CurrentValue = false,
+   Flag = "RainbowFOV",
+   Callback = function(Value)
+       CameraSettings.RainbowFOV = Value
+   end
+})
+
+VisualTab:CreateSection("Camera")
+VisualTab:CreateToggle({
+   Name = "Custom FOV(Camera)",
+   CurrentValue = false,
+   Flag = "CustomFOVCamera",
+   Callback = function(v)
+       CameraSettings.FOVEnabled = v 
+       if not v then
+           workspace.CurrentCamera.FieldOfView = 70
+       end
+   end,
+})
+
+VisualTab:CreateSlider({
+   Name = "Field of View (FOV)",
+   Range = {30, 120},
+   Increment = 1,
+   CurrentValue = 70,
+   Suffix = "°",
+   Flag = "CameraFOVValue",
+   Callback = function(v) CameraSettings.FOVValue = v end,
+})
+
+VisualTab:CreateSection("Map")
+VisualTab:CreateToggle({
+   Name = "Fullbright",
+   CurrentValue = false,
+   Flag = "Fullbright",
+   Callback = function(v)
+       WorldSettings.Fullbright = v
+       if not v then
+           Lighting.Brightness = DefaultLighting.Brightness
+           Lighting.ClockTime = DefaultLighting.ClockTime
+           Lighting.FogEnd = DefaultLighting.FogEnd
+           Lighting.GlobalShadows = DefaultLighting.GlobalShadows
+           Lighting.Ambient = DefaultLighting.Ambient
+       end
+   end,
+})
+
+MoveTab:CreateToggle({
+   Name = "Teleport Walk",
+   CurrentValue = false,
+   Flag = "TeleportWalk",
+   Callback = function(v) SpeedSettings.Enabled = v end,
+})
+
+MoveTab:CreateSlider({
+   Name = "Speed Value",
+   Range = {5, 20},
+   Increment = 1,
+   CurrentValue = 16,
+   Suffix = " Studs/s",
+   Flag = "WalkSpeedValue",
+   Callback = function(v) SpeedSettings.SpeedValue = v end,
+})
+
+MoveTab:CreateToggle({
+   Name = "Instant Jump",
+   CurrentValue = false,
+   Flag = "InstantJump",
+   Callback = function(v) 
+       JumpSettings.Enabled = v 
+       if v then
+           handleInstantJump()
+       end
+   end,
+})
+
+MoveTab:CreateToggle({
+   Name = "Enable JumpPower",
+   CurrentValue = false,
+   Flag = "JumpPowerEnabled",
+   Callback = function(v) JumpSettings.JumpPowerEnabled = v end,
+})
+
+MoveTab:CreateSlider({
+   Name = "JumpPower Value",
+   Range = {30, 85},
+   Increment = 5,
+   CurrentValue = 50,
+   Suffix = " Power",
+   Flag = "JumpPowerValue",
+   Callback = function(v) JumpSettings.JumpPowerValue = v end,
+})
+
+MoveTab:CreateToggle({
+   Name = "Bunny Hop",
+   CurrentValue = false,
+   Flag = "BunnyHop",
+   Callback = function(v) JumpSettings.BhopEnabled = v end,
+})
+
+GunTab:CreateSection("Gun Modifier")
+
+GunTab:CreateToggle({
+    Name = "Enable Gun Modifier",
+    CurrentValue = false,
+    Flag = "GunEnabled",
+    Callback = function(v) GunSettings.Enabled = v end,
+})
+
+GunTab:CreateToggle({
+    Name = "No Recoil",
+    CurrentValue = false,
+    Flag = "GunNoRecoil",
+    Callback = function(v) GunSettings.NoRecoilEnabled = v end,
+})
+
+GunTab:CreateInput({
+    Name = "Bullet Max Distance",
+    PlaceholderText = "5000",
+    RemoveTextAfterFocusLost = false,
+    Flag = "BulletMaxRange",
+    Callback = function(Text)
+        GunSettings.MaxDistance = tonumber(Text) or 5000
+    end,
+})
+
+GunTab:CreateToggle({
+    Name = "No Aim Spread",
+    CurrentValue = false,
+    Flag = "GunSpreadEnable",
+    Callback = function(v) GunSettings.SpreadEnabled = v end,
+})
+
+GunTab:CreateToggle({
+    Name = "Enable Aim FOV Modifier",
+    CurrentValue = false,
+    Flag = "GunAimFOVEnable",
+    Callback = function(v) GunSettings.AimFOVEnabled = v end,
+})
+
+GunTab:CreateToggle({
+    Name = "Enable Aim FOV Scope Modifier",
+    CurrentValue = false,
+    Flag = "GunAimFOVScopeEnable",
+    Callback = function(v) GunSettings.AimFOVScopeEnabled = v end,
+})
+
+GunTab:CreateInput({
+    Name = "Aim FOV",
+    PlaceholderText = "70",
+    RemoveTextAfterFocusLost = false,
+    Flag = "GunAimFOV",
+    Callback = function(Text)
+        GunSettings.AimFOVValue = tonumber(Text) or 70
+    end,
+})
+
+GunTab:CreateInput({
+    Name = "Aim FOV Scope",
+    PlaceholderText = "70",
+    RemoveTextAfterFocusLost = false,
+    Flag = "GunAimFOVScope",
+    Callback = function(Text)
+         GunSettings.AimFOVScopeValue = tonumber(Text) or 70
+    end,
+})
+
+local function UpdatePropESP(trackerDict, settingToggle, settingColor, localPos)
+    for prop, data in pairs(trackerDict) do
+        if not prop.Parent then
+             if data.gui then data.gui:Destroy() end
+            if data.highlight then data.highlight:Destroy() end
+            trackerDict[prop] = nil
+            continue
+        end
+        
+        local isEnabled = AimSettings.ESPEnabled and settingToggle
+        if data.gui.Enabled ~= isEnabled then data.gui.Enabled = isEnabled end
+        if data.highlight.Enabled ~= isEnabled then data.highlight.Enabled = isEnabled end
+        
+        if isEnabled then
+            data.label.TextSize = AimSettings.NameESPSize
+            data.highlight.FillTransparency = AimSettings.ESPTransparency
+            data.label.Text = prop.Name
+            data.label.TextColor3 = settingColor
+            data.highlight.FillColor = settingColor
+            
+            local dist = 0
+            if localPos then
+                dist = (localPos - prop:GetPivot().Position).Magnitude
+            end
+            
+              if dist <= AimSettings.ESPShowRange then
+                data.label.Visible = AimSettings.ShowPropsNames
+            else
+                data.label.Visible = false
+            end
+         end
+    end
+end
+
+local cachedGrenadeWarningActive = false
+local lastVisualTick = 0
+
+RunService.RenderStepped:Connect(function()
+    local myChar = LP.Character
+    local localHead = myChar and myChar:FindFirstChild("Head")
+    local localRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local localRootPos = localRoot and localRoot.Position
+
+    if AimSettings.PredictionEnabled and AimSettings.AutoPrediction then
+        local ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+        local pingInSeconds = (ping > 0 and ping / 1000) or 0.1
+        AimSettings.PredictIntensity = math.clamp(pingInSeconds * 10, 0.5, 3)
+    end
+
+    if SoundSettings.Enabled then
+        local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+         if myHum then
+            local pct = myHum.Health / myHum.MaxHealth
+            if pct <= 0.25 and myHum.Health > 0 then
+                if not hasPlayedLowHP then
+                    hasPlayedLowHP = true
+                      LowHPSound:Play()
+                end
+            elseif pct > 0.25 then
+                 hasPlayedLowHP = false
+            end
+        end
+     end
+
+    if CameraSettings.FOVEnabled then
+        workspace.CurrentCamera.FieldOfView = CameraSettings.FOVValue
+     end
+
+     if WorldSettings.Fullbright then
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 14
+        Lighting.FogEnd = 100000
+        Lighting.GlobalShadows = false
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+    end
+
+    if SpeedSettings.Enabled and myChar and myChar:FindFirstChild("Humanoid") and localRoot then
+         local hum = myChar.Humanoid
+        if hum.MoveDirection.Magnitude > 0 then
+             localRoot.CFrame = localRoot.CFrame + (hum.MoveDirection * (SpeedSettings.SpeedValue / 50))
+        end
+    end
+
+    if AimSettings.ShowFOV then
+        FOVFrame.Visible = true
+        local diameter = AimSettings.FOV * 2
+        FOVFrame.Size = UDim2.new(0, diameter, 0, diameter)
+        local _, yOffset = GetFOVCenter()
+         FOVFrame.Position = UDim2.new(0.5, 0, 0.5, yOffset)
+
+         if CameraSettings.RainbowFOV then
+            local hue = tick() % 5 / 5
+            UIStroke.Color = Color3.fromHSV(hue, 1, 1)
+        else
+            UIStroke.Color = CameraSettings.FOVColor
+         end
+    else
+        FOVFrame.Visible = false
+     end
+
+    local enemyTarget = GetTargetV2()
+    local allyTarget = nil
+    if MedicSettings.AutoHealAlly then
+        allyTarget = GetAllyTargetInFOV()
+    end
+    local uiTarget = enemyTarget or allyTarget
+
+    local now = tick()
+    if now - lastVisualTick >= 0.033 then
+        lastVisualTick = now
+        local flashState = (math.sin(now * 15) > 0)
+        
+        for _, p in pairs(game.Players:GetPlayers()) do
+             if p ~= LP and p.Character then
+                local highlight = p.Character:FindFirstChild("ESPHighlight")
+                 local nameGuiTop = p.Character:FindFirstChild("NameESP_Top")
+                local nameGuiBottom = p.Character:FindFirstChild("NameESP_Bottom")
+                local labelTop = nameGuiTop and nameGuiTop:FindFirstChild("TextLabel")
+                local labelBottom = nameGuiBottom and nameGuiBottom:FindFirstChild("TextLabel")
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                local root = p.Character:FindFirstChild("HumanoidRootPart")
+
+                if highlight and labelTop and labelBottom and hum then
+                    local isDead = (hum.Health <= 0)
+                    if p.Character:FindFirstChildOfClass("ForceField") then
+                        PlayerDeathCounts[p.UserId] = 0
+                        PlayerAliveStates[p.UserId] = true
+                        isDead = false
+                    end
+                    
+                    if PlayerAliveStates[p.UserId] == nil then
+                        PlayerAliveStates[p.UserId] = not isDead
+                    end
+                     
+                    if PlayerAliveStates[p.UserId] and isDead then
+                        PlayerDeathCounts[p.UserId] = (PlayerDeathCounts[p.UserId] or 0) + 1
+                        PlayerAliveStates[p.UserId] = false
+                    elseif not isDead then
+                        PlayerAliveStates[p.UserId] = true
+                    end
+
+                    local deadColor = Color3.fromRGB(40, 5, 5) 
+
+                    if isDead then
+                        local deaths = PlayerDeathCounts[p.UserId] or 1
+                        if p.Team == LP.Team then
+                            if deaths == 1 then deadColor = Color3.fromRGB(255, 0, 0)
+                            else deadColor = Color3.fromRGB(0, 0, 0) end
+                        else
+                            if deaths == 1 then deadColor = Color3.fromRGB(255, 165, 0)
+                            else deadColor = Color3.fromRGB(255, 255, 255) end
+                         end
+                    end
+                    
+                    local baseColor = p.TeamColor.Color
+                    if AimSettings.UseCustomESPColors then
+                          baseColor = (p.Team == LP.Team) and AimSettings.AllyESPColor or AimSettings.EnemyESPColor
+                     end
+
+                    local targetHighlightColor = isDead and deadColor or baseColor
+                    local targetNameColor = isDead and deadColor or baseColor
+
+                     if not isDead and uiTarget and uiTarget.Parent == p.Character then
+                         if p.Team == LP.Team then
+                            targetNameColor = AimSettings.UseCustomESPColors and AimSettings.AllyESPColor or Color3.fromRGB(0, 255, 0)
+                        else
+                            targetNameColor = AimSettings.UseCustomESPColors and AimSettings.EnemyESPColor or Color3.fromRGB(255, 0, 0)
+                         end
+                    end
+           
+                    if not isDead and AimSettings.EnemyLookWarning and p.Team ~= LP.Team and localHead then
+                         local enemyHead = p.Character:FindFirstChild("Head")
+                         if enemyHead then
+                            local dirToLP = (localHead.Position - enemyHead.Position).Unit
+                            local enemyLook = enemyHead.CFrame.LookVector
+                              if enemyLook:Dot(dirToLP) >= 0.9781 then 
+                                 if not AimSettings.WallCheck or IsVisible(enemyHead) then
+                                    if flashState then
+                                         targetHighlightColor = Color3.fromRGB(255, 0, 0)
+                                         targetNameColor = Color3.fromRGB(255, 0, 0)
+                                    end
+                                 end
+                            end
+                        end
+                    end
+      
+                   highlight.FillColor = targetHighlightColor
+                    labelTop.TextColor3 = targetNameColor
+                    labelTop.TextSize = AimSettings.NameESPSize
+
+                    labelBottom.TextColor3 = targetNameColor
+                    labelBottom.TextSize = AimSettings.NameESPSize
+
+                     local dist = 0
+                     if root and localRootPos then
+                         dist = (localRootPos - root.Position).Magnitude
+                    end
+
+                    if AimSettings.ShowNames and AimSettings.ESPEnabled and dist <= AimSettings.ESPShowRange then
+                        labelTop.Visible = true
+                         labelBottom.Visible = true
+
+                        local moveState = ""
+                        if not isDead and root then
+                            local currentSpeed = math.sqrt(root.AssemblyLinearVelocity.X^2 + root.AssemblyLinearVelocity.Z^2)
+                            if currentSpeed > 16 then
+                                moveState = "[Running] "
+                            elseif currentSpeed >= 0.5 then
+                                 moveState = "[Walking] "
+                             end
+                        end
+                 
+                        local teamName = (p.Team and p.Team.Name) or "Neutral"
+                         local deadTag = ""
+                        if isDead then
+                            local deaths = PlayerDeathCounts[p.UserId] or 1
+                            if deaths == 1 then
+                                 deadTag = " [Downed]"
+                            else
+                                deadTag = "[Dead]"
+                            end
+                        end
+                        
+                        local currentHP = math.max(0, math.floor(hum.Health))
+                        if moveState ~= "" then
+                            labelTop.Text = string.format("%s[HP: %d] [%s]", moveState, currentHP, teamName)
+                        else
+                            labelTop.Text = string.format("[HP: %d] [%s]", currentHP, teamName)
+                         end
+                        labelBottom.Text = string.format("%s%s\n[%.1f Studs]", p.Name, deadTag, dist)
+                    else
+                        labelTop.Visible = false
+                        labelBottom.Visible = false
+                    end
+                end
+            end
+        end
+
+        local currentGrenadeWarningActive = false
+
+        for grenade, data in pairs(trackedGrenades) do
+            if not grenade.Parent then
+                if data.gui then data.gui:Destroy() end
+                if data.highlight then data.highlight:Destroy() end
+                 if data.sphere then data.sphere:Destroy() end
+                trackedGrenades[grenade] = nil
+                continue
+            end
+
+            if data.ignored then continue end
+            if data.expired then continue end
+
+            local age = now - data.startTime
+            if age >= 4 then
+                 if data.gui then data.gui:Destroy() end
+                if data.highlight then data.highlight:Destroy() end
+                if data.sphere then data.sphere:Destroy() end
+                data.expired = true
+                continue
+            end
+
+            local targetPart = grenade.PrimaryPart or grenade:FindFirstChildWhichIsA("BasePart")
+            if targetPart then
+                  if data.gui.Adornee ~= targetPart then
+                     data.gui.Adornee = targetPart
+                end
+                if data.sphere and data.sphere.Parent then
+                    data.sphere.Position = targetPart.Position
+                     data.sphere.Color = AimSettings.GrenadeColor
+                  end
+            end
+            
+            local isEnabled = AimSettings.ESPEnabled and AimSettings.GrenadeESP
+            data.gui.Enabled = isEnabled
+            data.highlight.Enabled = isEnabled
+
+            if data.sphere then
+                data.sphere.Transparency = (AimSettings.ESPEnabled and AimSettings.GrenadeWarning and not data.isFriendly) and 0.7 or 1
+            end
+
+             data.label.TextSize = AimSettings.NameESPSize
+            data.highlight.FillTransparency = AimSettings.ESPTransparency
+            
+            local distToGrenade = 0
+            if localRootPos and targetPart then
+                distToGrenade = (localRootPos - targetPart.Position).Magnitude
+            end
+
+            if isEnabled then
+                 data.label.Text = string.format("Grenade [%.1fs]", math.max(0, 4 - age))
+                if flashState then
+                    data.label.TextColor3 = Color3.fromRGB(255, 0, 0)
+                    data.highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                else
+                    data.label.TextColor3 = AimSettings.GrenadeColor
+                      data.highlight.FillColor = AimSettings.GrenadeColor
+                end
+                data.label.Visible = AimSettings.ShowPropsNames
+            end
+
+            if AimSettings.GrenadeWarning and not data.isFriendly and localRootPos then
+                if distToGrenade <= 25 then
+                    currentGrenadeWarningActive = true
+                 end
+            end
+        end
+
+        cachedGrenadeWarningActive = currentGrenadeWarningActive
+
+        UpdatePropESP(trackedHMGs, AimSettings.HMGESP, AimSettings.HMGColor, localRootPos)
+        UpdatePropESP(trackedLadders, AimSettings.LadderESP, AimSettings.LadderColor, localRootPos)
+        UpdatePropESP(trackedDuckboards, AimSettings.DuckboardESP, AimSettings.DuckboardColor, localRootPos)
+        UpdatePropESP(trackedRoofs, AimSettings.RoofESP, AimSettings.RoofColor, localRootPos)
+        UpdatePropESP(trackedWires, AimSettings.WireESP, AimSettings.WireColor, localRootPos)
+        UpdatePropESP(trackedSandbags, AimSettings.SandbagESP, AimSettings.SandbagColor, localRootPos)
+        UpdatePropESP(trackedTallSandbags, AimSettings.TallSandbagESP, AimSettings.TallSandbagColor, localRootPos)
+    end
+
+    if cachedGrenadeWarningActive then
+        local blink = tick() % 1 < 0.5
+        WarningText.Visible = blink
+    else
+        WarningText.Visible = false
+    end
+
+    if enemyTarget and AimSettings.SilentAimV2Enabled then
+        local MyOrigin = myChar and (myChar:FindFirstChild("Head") or myChar.PrimaryPart)
+        local dist = (localRootPos and (localRootPos - enemyTarget.Position).Magnitude) or 999
+        if dist <= AimSettings.SilentAimV2MaxDistance and MyOrigin then
+             CurrentSilentAimV2Target = enemyTarget
+        else
+              CurrentSilentAimV2Target = nil
+         end
+    else
+        CurrentSilentAimV2Target = nil
+    end
+
+    if uiTarget then
+        if AimSettings.ShowTargetInfo and uiTarget.Parent:FindFirstChild("Humanoid") then
+            local hum = uiTarget.Parent.Humanoid
+            local tgtRoot = uiTarget.Parent:FindFirstChild("HumanoidRootPart")
+            TargetFrame.Visible = true
+            
+             local activeAims = {}
+            if AimSettings.Enabled then table.insert(activeAims, "Ab") end
+            if AimSettings.SilentAimEnabled then table.insert(activeAims, "V1") end
+            
+            if AimSettings.SilentAimV2Enabled then
+                local tgtDist = (localRootPos and tgtRoot) and (localRootPos - tgtRoot.Position).Magnitude or 999
+                 if tgtDist <= AimSettings.SilentAimV2MaxDistance then
+                    table.insert(activeAims, "V2")
+                end
+            end
+            
+             if AimSettings.SilentAimV3Enabled then table.insert(activeAims, "V3") end
+             
+            if AimSettings.ShowTargetWorkingAim then
+                WorkingAimLabel.Visible = true
+                WorkingAimLabel.Text = table.concat(activeAims, ",")
+            else
+                  WorkingAimLabel.Visible = false
+             end
+            
+            local movementTxt = ""
+            if AimSettings.ShowTargetMoveStatus and tgtRoot then
+                local currentSpeed = math.sqrt(tgtRoot.AssemblyLinearVelocity.X^2 + tgtRoot.AssemblyLinearVelocity.Z^2)
+                if currentSpeed > 16 then movementTxt = ",[Running]"
+                elseif currentSpeed >= 0.5 then movementTxt = ",[Walking]"
+                else movementTxt = ",[Idle]" end
+            end
+
+            local distStr = ""
+            if AimSettings.ShowTargetDistance then
+                 local distToTarget = (localRootPos and tgtRoot) and (localRootPos - tgtRoot.Position).Magnitude or 0
+                distStr = string.format("\n[%.1f Studs]", distToTarget)
+            end
+
+            local targetPlayer = game.Players:GetPlayerFromCharacter(uiTarget.Parent)
+            local tColor = Color3.fromRGB(255, 255, 255)
+            if targetPlayer then
+                  tColor = targetPlayer.TeamColor.Color
+            end
+            
+             TargetInfoLabel.TextColor3 = tColor
+            WorkingAimLabel.TextColor3 = tColor
+            
+            TargetInfoLabel.Text = string.format("Aiming %s,%.0f/%.0f%s%s", uiTarget.Parent.Name, hum.Health, hum.MaxHealth, movementTxt, distStr)
+         else
+            TargetFrame.Visible = false
+        end
+
+        if enemyTarget then
+             local targetPos = getSilentPos(enemyTarget)
+            if AimSettings.Enabled then
+                local currentCF = Camera.CFrame
+                  local aimCF = CFrame.lookAt(currentCF.Position, targetPos)
+                local _, fovYOffset = GetFOVCenter()
+                if fovYOffset ~= 0 then
+                    local fovRadians = math.rad(Camera.FieldOfView)
+                    local pitchOffset = (fovYOffset / Camera.ViewportSize.Y) * fovRadians
+                    aimCF = aimCF * CFrame.Angles(pitchOffset, 0, 0)
+                end
+
+                 if AimSettings.StickyAimEnabled then
+                    Camera.CFrame = aimCF
+                else
+                      Camera.CFrame = currentCF:Lerp(aimCF, AimSettings.Smoothness)
+                end
+             end
+
+            if AimSettings.SilentAimEnabled and enemyTarget then
+                if not AimSettings.WallCheck or IsVisible(enemyTarget) then
+                      local tool = myChar and myChar:FindFirstChildOfClass("Tool")
+                    if tool and tool:FindFirstChild("Hold") then
+                         local args = {
+                            [1] = {
+                                  ["Tool"] = tool,
+                                 ["Character"] = myChar,
+                                ["Player"] = LP,
+                                  ["clientCanFire"] = true,
+                                 ["currentShots"] = 1,
+                                ["Camera"] = Camera,
+                                 ["LoadedAnimations"] = true,
+                                 ["LoadedEvents"] = true,
+                                ["actionBinds"] = {
+                                     Shoot = {true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2}
+                                 }
+                            },
+                             [2] = targetPos,
+                            [3] = false,
+                            [4] = 1,
+                              [5] = {},
+                            [6] = targetPos + Vector3.new(0, 0.1, 0)
+                        }
+                        ShootEvent:FireServer(unpack(args))
+                     end
+                 end
+            end
+        end
+    else
+        TargetFrame.Visible = false
+    end
+end)
+
+LP.CharacterAdded:Connect(function(character)
+    task.wait(1)
+    ResetMedicState()
+    if JumpSettings.Enabled then
+         handleInstantJump()
+    end
+     character.ChildAdded:Connect(function(child)
+        if child:IsA("Tool") then
+            ResetMedicState()
+         end
+    end)
+end)
+
+local oldRayNew
+oldRayNew = hookfunction(Ray.new, newcclosure(function(origin, direction, ...)
+    if AimSettings.SilentAimV2Enabled and CurrentSilentAimV2Target then
+        local targetPos = CurrentSilentAimV2Target.Position
+        local newDirection = (targetPos - origin).Unit * direction.Magnitude
+        return oldRayNew(origin, newDirection, ...)
+     end
+    return oldRayNew(origin, direction, ...)
+end))
+
+local mt = getrawmetatable(game)
+local oldNamecall = mt.__namecall
+setreadonly(mt, false)
+
+mt.__namecall = newcclosure(function(self, ...)
+    local args = {...}
+    local method = getnamecallmethod()
+
+    if AimSettings.SilentAimV2Enabled and CurrentSilentAimV2Target then
+        if method == "Raycast" then
+            args[2] = (CurrentSilentAimV2Target.Position - args[1]).Unit * 500
+            return oldNamecall(self, unpack(args))
+        elseif method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRayWithWhitelist" or method == "FindPartOnRay" then
+             local origin = args[1].Origin
+            args[1] = Ray.new(origin, (CurrentSilentAimV2Target.Position - origin).Unit * 500)
+             return oldNamecall(self, unpack(args))
+        end
+    end
+
+    return oldNamecall(self, ...)
+end)
+setreadonly(mt, true)
+
+local s, wm = pcall(require, ReplicatedStorage:WaitForChild("WeaponModule"))
+if s and wm then
+    local oldEquip
+    oldEquip = hookfunction(rawget(wm, "Equip"), newcclosure(function(data, _)
+         if GunSettings.NoRecoilEnabled and data and data.Tool then
+             data.Tool:SetAttribute("Recoil", 0)
+            task.spawn(function()
+                 while GunSettings.NoRecoilEnabled and data.RecoilPattern do
+                    table.clear(data.RecoilPattern)
+                    task.wait()
+                 end
+             end)
+        end
+         return oldEquip(data, _)
+    end))
+
+    local function GetTargetV3()
+        local localRoot = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        local localRootPos = localRoot and localRoot.Position
+
+        if AimSettings.StickyAimEnabled and CurrentStickyTargetV3 then
+            local hum = CurrentStickyTargetV3.Parent and CurrentStickyTargetV3.Parent:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                   local pos, onScreen = Camera:WorldToViewportPoint(CurrentStickyTargetV3.Position)
+                if onScreen then
+                    local center, _ = GetFOVCenter()
+                    local magnitude = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                    if magnitude < AimSettings.FOV then
+                        local distToPlayer = (localRootPos and (localRootPos - CurrentStickyTargetV3.Position).Magnitude) or 999
+                        if distToPlayer <= AimSettings.MaxDistance then
+                             if not AimSettings.WallCheck or IsVisible(CurrentStickyTargetV3) then
+                                    return CurrentStickyTargetV3
+                            end
+                        end
+                      end
+                 end
+            end
+            CurrentStickyTargetV3 = nil
+        end
+
+        local target = nil
+        local shortestDistance = AimSettings.FOV
+        local center, _ = GetFOVCenter()
+
+        for _, v in pairs(game.Players:GetPlayers()) do
+            if v ~= LP and v.Character and v.Character:FindFirstChild(AimSettings.TargetPart) then
+                if v.Team == LP.Team then continue end
+                local hum = v.Character:FindFirstChildOfClass("Humanoid")
+                if not hum then continue end
+                 if AimSettings.DeadCheck and hum.Health <= 0 then continue end
+                if AimSettings.ForcefieldCheck and v.Character:FindFirstChildOfClass("ForceField") then continue end
+
+                local part = v.Character[AimSettings.TargetPart]
+                local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                if onScreen then
+                       local magnitude = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                    if magnitude < shortestDistance then
+                        local distToPlayer = (localRootPos and (localRootPos - part.Position).Magnitude) or 999
+                        if distToPlayer <= AimSettings.MaxDistance then
+                             if not AimSettings.WallCheck or IsVisible(part) then
+                                shortestDistance = magnitude
+                                 target = part
+                              end
+                        end
+                    end
+                end
+             end
+        end
+
+         if target and AimSettings.StickyAimEnabled then
+            CurrentStickyTargetV3 = target
+        end
+        return target
+    end
+
+    local anon = debug.getupvalue(rawget(wm, "Shoot"), 3)
+    if not anon or type(anon) ~= "function" then
+        for _, v in next, debug.getupvalues(rawget(wm, "Shoot")) do
+              if type(v) == "function" then anon = v; break;
+end
+        end
+    end
+
+    if anon then
+        for k, v in next, getfenv(anon) do
+            if type(v) == "function" then
+                local n = debug.info(v, "n")
+                if n == "Crosshair" then
+                       local oldCrosshair
+                    oldCrosshair = hookfunction(rawget(getfenv(anon), k), newcclosure(function(...)
+                        if AimSettings.SilentAimV3Enabled then
+                            local c = GetTargetV3()
+                             local tool = LP.Character and LP.Character:FindFirstChildOfClass("Tool")
+                            local vel = tool and tool:GetAttribute("Velocity") or 1000
+                            if c and vel and tool and LP.Character and LP.Character:FindFirstChild("Head") then
+                                  local pos = c.Position
+                                local tVel = c.AssemblyLinearVelocity
+                                local r = pos - LP.Character.Head.Position
+                                local v_vel = tVel - LP.Character.Head.AssemblyLinearVelocity
+                                local a = v_vel:Dot(v_vel) - vel * vel
+                                 local b = 2 * r:Dot(v_vel)
+                                local c0 = r:Dot(r)
+                                local disc = b * b - 4 * a * c0
+                                  if disc >= 0 then
+                                    local sqrtDisc = math.sqrt(disc)
+                                     local t1 = (-b - sqrtDisc) / (2 * a)
+                                    local t2 = (-b + sqrtDisc) / (2 * a)
+                                    local t_time = nil
+                                      if t1 > 0 and t2 > 0 then t_time = math.min(t1, t2)
+                                    elseif t1 > 0 then t_time = t1
+                                     elseif t2 > 0 then t_time = t2 end
+                                    if t_time then
+                                         local prediction = pos + tVel * t_time
+                                        return prediction + (prediction - LP.Character.Head.Position).Unit * (tool:GetAttribute("SpreadDefault") or 0) * 0.1
+                                       end
+                                end
+                                return pos
+                              end
+                          end
+                        return oldCrosshair(...)
+                    end))
+                elseif n == "bulletMagnetism" then
+                      local oldMag
+                    oldMag = hookfunction(rawget(getfenv(anon), k), newcclosure(function(...)
+                        if AimSettings.SilentAimV3Enabled then return nil end
+                        return oldMag(...)
+                      end))
+                end
+            end
+        end
+    end
+end
+
+local MusicSettings = {
+    CustomRangeEnabled = false,
+    StartTime = 0,
+    EndTime = 0,
+    AutoReplay = false,
+    EQEnabled = false,
+    EQPreset = "Balanced",
+    Band63 = 0, Band125 = 0, Band250 = 0,
+    Band500 = 0, Band1k = 0, Band2k = 0,
+    Band4k = 0, Band8k = 0, Band16k = 0
+}
+
+local MusicTab = Window:CreateTab("Music Player", "music")
+
+MusicTab:CreateParagraph({Title = "Music Player Info", Content = "-File Location:Delta:Workspace/RayfieldConfigs/Music\n-Supported Formats: .mp3,.wav,.ogg.\n-Music Player 1.2.0 by Edzefd Team"})
+
+local musicFolder = "RayfieldConfigs/Music"
+if isfolder and makefolder then
+    if not isfolder("RayfieldConfigs") then
+        makefolder("RayfieldConfigs")
+    end
+    if not isfolder(musicFolder) then
+        makefolder(musicFolder)
+     end
+end
+
+local bgmSound = Instance.new("Sound")
+bgmSound.Parent = game:GetService("CoreGui")
+bgmSound.Volume = 1
+bgmSound.Looped = false
+
+local bgmEQ = Instance.new("EqualizerSoundEffect")
+bgmEQ.Parent = bgmSound
+bgmEQ.Enabled = false
+
+local EQPresets = {
+    ["Bass Boost"] = {["63"]=10, ["125"]=8, ["250"]=5, ["500"]=0, ["1k"]=0, ["2k"]=0, ["4k"]=0, ["8k"]=0, ["16k"]=0},
+    ["Deep"] = {["63"]=8, ["125"]=6, ["250"]=4, ["500"]=2, ["1k"]=0, ["2k"]=-2, ["4k"]=-4, ["8k"]=-4, ["16k"]=-6},
+    ["Smooth"] = {["63"]=4, ["125"]=4, ["250"]=2, ["500"]=0, ["1k"]=-2, ["2k"]=-2, ["4k"]=0, ["8k"]=2, ["16k"]=4},
+    ["Clear"] = {["63"]=-2, ["125"]=-2, ["250"]=0, ["500"]=2, ["1k"]=4, ["2k"]=6, ["4k"]=6, ["8k"]=4, ["16k"]=2},
+    ["Balanced"] = {["63"]=0, ["125"]=0, ["250"]=0, ["500"]=0, ["1k"]=0, ["2k"]=0, ["4k"]=0, ["8k"]=0, ["16k"]=0},
+    ["Treble Boost"] = {["63"]=0, ["125"]=0, ["250"]=0, ["500"]=0, ["1k"]=0, ["2k"]=2, ["4k"]=5, ["8k"]=8, ["16k"]=10},
+    ["Dynamic"] = {["63"]=6, ["125"]=4, ["250"]=0, ["500"]=-2, ["1k"]=-2, ["2k"]=0, ["4k"]=4, ["8k"]=6, ["16k"]=6}
+}
+
+local function UpdateEQ()
+    if not MusicSettings.EQEnabled then
+        bgmEQ.Enabled = false
+        return
+    end
+    bgmEQ.Enabled = true
+
+    local low, mid, high = 0, 0, 0
+    if MusicSettings.EQPreset == "Custom" then
+        low = (MusicSettings.Band63 + MusicSettings.Band125 + MusicSettings.Band250) / 3
+        mid = (MusicSettings.Band500 + MusicSettings.Band1k + MusicSettings.Band2k) / 3
+         high = (MusicSettings.Band4k + MusicSettings.Band8k + MusicSettings.Band16k) / 3
+    else
+        local p = EQPresets[MusicSettings.EQPreset]
+        if p then
+            low = (p["63"] + p["125"] + p["250"]) / 3
+            mid = (p["500"] + p["1k"] + p["2k"]) / 3
+            high = (p["4k"] + p["8k"] + p["16k"]) / 3
+          end
+    end
+
+    bgmEQ.LowGain = math.clamp(low, -80, 10)
+    bgmEQ.MidGain = math.clamp(mid, -80, 10)
+    bgmEQ.HighGain = math.clamp(high, -80, 10)
+end
+
+local supportedFormats = {".mp3", ".wav", ".ogg", ".opus"}
+local musicFiles = {}
+local musicOptions = {}
+
+local function getValidMusicFiles()
+    local valid = {}
+    if listfiles then
+        pcall(function()
+            local files = listfiles(musicFolder)
+             for _, file in ipairs(files) do
+                for _, format in ipairs(supportedFormats) do
+                    if string.sub(file, -#format):lower() == format then
+                        table.insert(valid, file)
+                         break
+                      end
+                end
+            end
+        end)
+    end
+    return valid
+end
+
+musicFiles = getValidMusicFiles()
+for _, file in ipairs(musicFiles) do
+    local fileName = file:match("([^/\\]+)$") or file
+    table.insert(musicOptions, fileName)
+end
+
+if #musicOptions == 0 then
+     table.insert(musicOptions, "No music found in folder")
+end
+
+local selectedFilePath = nil
+
+local MusicDropdown = MusicTab:CreateDropdown({
+    Name = "Select Music",
+    Options = musicOptions,
+    CurrentOption = {musicOptions[1] or ""},
+    MultipleOptions = false,
+    Flag = "SelectedMusic",
+    Callback = function(Option)
+        local chosenName = Option[1]
+        if chosenName and chosenName ~= "No music found in folder" then
+            for _, file in ipairs(musicFiles) do
+                 local fileName = file:match("([^/\\]+)$") or file
+                if fileName == chosenName then
+                    selectedFilePath = file
+                    if getcustomasset then
+                         pcall(function()
+                             bgmSound.SoundId = getcustomasset(file)
+                        end)
+                    else
+                          Rayfield:Notify({Title = "Error", Content = "Your executor missing getcustomasset", Duration = 3})
+                    end
+                    break
+                end
+            end
+        end
+      end,
+})
+
+local NowPlayingLabel = MusicTab:CreateLabel("Now Playing: None\n[00:00:00:000 - 00:00:00:000]")
+
+task.spawn(function()
+    while task.wait(0.05) do 
+         if bgmSound.IsPlaying or bgmSound.TimePosition > 0 then
+            local fileName = selectedFilePath and selectedFilePath:match("([^/\\]+)$") or "Unknown"
+            local current = bgmSound.TimePosition
+            local total = bgmSound.TimeLength
+            if bgmSound.IsPlaying then
+                  if MusicSettings.CustomRangeEnabled and MusicSettings.EndTime > 0 and current >= MusicSettings.EndTime then
+                    if MusicSettings.AutoReplay then
+                        bgmSound.TimePosition = MusicSettings.StartTime
+                    else
+                          bgmSound:Stop()
+                     end
+                end
+            end
+
+            local function formatTime(seconds)
+                if not seconds or seconds ~= seconds then seconds = 0 end
+                local h = math.floor(seconds / 3600)
+                local m = math.floor((seconds % 3600) / 60)
+                local s = math.floor(seconds % 60)
+                local ms = math.floor((seconds % 1) * 1000)
+                 return string.format("%02d:%02d:%02d:%03d", h, m, s, ms)
+             end
+                    
+            NowPlayingLabel:Set("Now Playing: " .. fileName .. "\n[" .. formatTime(current) .. " - " .. formatTime(total) .. "]")
+        else
+            NowPlayingLabel:Set("Now Playing: None\n[00:00:00:000 - 00:00:00:000]")
+          end
+    end
+end)
+
+bgmSound.Ended:Connect(function()
+    if MusicSettings.AutoReplay then
+         if MusicSettings.CustomRangeEnabled then
+            bgmSound.TimePosition = MusicSettings.StartTime
+        else
+            bgmSound.TimePosition = 0
+        end
+        bgmSound:Play()
+    end
+end)
+
+MusicTab:CreateButton({
+    Name = "Play",
+    Callback = function()
+         if bgmSound.SoundId ~= "" then
+            if MusicSettings.CustomRangeEnabled and bgmSound.TimePosition < MusicSettings.StartTime then
+                bgmSound.TimePosition = MusicSettings.StartTime
+            end
+            bgmSound:Play()
+        else
+            Rayfield:Notify({Title = "Notice", Content = "Select a valid track first.", Duration = 2})
+        end
+    end,
+})
+
+MusicTab:CreateButton({
+    Name = "Pause/Resume",
+    Callback = function()
+        if bgmSound.IsPlaying then
+            bgmSound:Pause()
+        else
+            bgmSound:Resume()
+        end
+    end,
+})
+
+MusicTab:CreateButton({
+    Name = "Stop",
+    Callback  = function()
+        bgmSound:Stop()
+      end,
+})
+
+MusicTab:CreateButton({
+    Name = "Rewind 10s",
+    Callback = function()
+         bgmSound.TimePosition = math.max(0, bgmSound.TimePosition - 10)
+    end,
+})
+
+MusicTab:CreateButton({
+    Name = "Forward 10s",
+    Callback = function()
+        bgmSound.TimePosition = math.min(bgmSound.TimeLength, bgmSound.TimePosition + 10)
+    end,
+})
+
+MusicTab:CreateInput({
+    Name = "Jump to Time (MM:SS)",
+    PlaceholderText = "15:14",
+    RemoveTextAfterFocusLost = false,
+    Flag = "MusicTimeJump",
+    Callback = function(Text)
+          local m, s = Text:match("(%d+):(%d+)")
+        if m and s then
+             local targetTime = tonumber(m) * 60 + tonumber(s)
+            if targetTime <= bgmSound.TimeLength then
+                bgmSound.TimePosition = targetTime
+            end
+        end
+     end,
+})
+
+MusicTab:CreateToggle({
+     Name = "Enable Custom Start/End Time",
+    CurrentValue = false,
+    Flag = "MusicCustomRange",
+    Callback = function(Value) MusicSettings.CustomRangeEnabled = Value end,
+})
+
+MusicTab:CreateInput({
+    Name = "Start Time (MM:SS)",
+    PlaceholderText = "00:00",
+    RemoveTextAfterFocusLost = false,
+    Flag = "MusicStartTime",
+    Callback = function(Text)
+        local m, s = Text:match("(%d+):(%d+)")
+        if m and s then
+             MusicSettings.StartTime = tonumber(m) * 60 + tonumber(s)
+        end
+    end,
+})
+
+MusicTab:CreateInput({
+    Name = "End Time (MM:SS)",
+    PlaceholderText = "00:00",
+    RemoveTextAfterFocusLost = false,
+    Flag = "MusicEndTime",
+    Callback = function(Text)
+        local m, s = Text:match("(%d+):(%d+)")
+        if m and s then
+            MusicSettings.EndTime = tonumber(m) * 60 + tonumber(s)
+         end
+    end,
+})
+
+MusicTab:CreateToggle({
+    Name = "Auto Replay",
+    CurrentValue = false,
+    Flag = "MusicAutoReplay",
+    Callback = function(Value) MusicSettings.AutoReplay = Value end,
+})
+
+MusicTab:CreateButton({
+    Name = "Refresh List",
+    Callback = function()
+        musicFiles = getValidMusicFiles()
+        local newOptions = {}
+        for _, file in ipairs(musicFiles) do
+            local fileName = file:match("([^/\\]+)$") or file
+              table.insert(newOptions, fileName)
+        end
+        if #newOptions == 0 then
+            table.insert(newOptions, "No music found in folder")
+        end
+        MusicDropdown:Refresh(newOptions, true)
+    end,
+})
+
+MusicTab:CreateSlider({
+    Name = "Volume",
+    Range = {0, 200},
+    Increment = 1,
+    CurrentValue = 100,
+    Suffix = " %",
+    Flag = "MusicVolume",
+    Callback = function(Value)
+        bgmSound.Volume = Value / 100
+     end,
+})
+
+local SpeedEnabled = false
+MusicTab:CreateToggle({
+    Name = "Enable Music Speed",
+    CurrentValue = false,
+    Flag = "MusicSpeedEnabled",
+    Callback = function(Value)
+        SpeedEnabled = Value
+        if not Value then
+            bgmSound.PlaybackSpeed = 1
+         end
+     end,
+})
+
+MusicTab:CreateSlider({
+    Name  = "Music Speed",
+    Range = {0.1, 5.0},
+    Increment = 0.1,
+    CurrentValue = 1.0,
+    Suffix = " x",
+    Flag = "MusicSpeed",
+    Callback = function(Value)
+        if SpeedEnabled then
+            bgmSound.PlaybackSpeed = Value
+        end
+    end,
+})
+
+MusicTab:CreateSection("Equalizer Effects")
+
+MusicTab:CreateToggle({
+    Name = "Enable Equalizer",
+    CurrentValue = false,
+     Flag = "MusicEQEnabled",
+    Callback = function(Value)
+        MusicSettings.EQEnabled = Value
+         UpdateEQ()
+    end,
+})
+
+MusicTab:CreateDropdown({
+    Name = "Equalizer Preset",
+    Options = {"Bass Boost", "Deep", "Smooth", "Clear", "Balanced", "Treble Boost", "Dynamic", "Custom"},
+    CurrentOption = {"Balanced"},
+    MultipleOptions = false,
+    Flag = "MusicEQPreset",
+    Callback  = function(Option)
+        MusicSettings.EQPreset = Option[1]
+         UpdateEQ()
+     end,
+})
+
+local eqBands = {{"63", "Band63"}, {"125", "Band125"}, {"250", "Band250"}, {"500", "Band500"}, {"1k", "Band1k"}, {"2k", "Band2k"}, {"4k", "Band4k"}, {"8k", "Band8k"}, {"16k", "Band16k"}}
+
+for _, bandInfo in ipairs(eqBands) do
+    MusicTab:CreateSlider({
+        Name = bandInfo[1] .. "Hz",
+        Range = {-20, 10},
+        Increment = 1,
+        CurrentValue = 0,
+        Suffix = " dB",
+         Flag = "MusicEQ_" .. bandInfo[1],
+        Callback = function(Value)
+            MusicSettings[bandInfo[2]] = Value
+             if MusicSettings.EQPreset == "Custom" then
+                UpdateEQ()
+            end
+        end,
+    })
+end
+
+Rayfield:LoadConfiguration()
